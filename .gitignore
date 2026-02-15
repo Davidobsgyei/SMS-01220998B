@@ -1,0 +1,12 @@
+target/
+*.class
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+bin/
+# Keep the data folder but ignore large generated files
+data/*.db
+data/*.csv
+data/*.log
