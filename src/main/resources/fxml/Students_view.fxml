@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.studentmanagement.ui.StudentsController">
+    <top>
+        <HBox spacing="10" style="-fx-padding: 10;">
+            <TextField fx:id="searchField" promptText="Search by ID or Name"/>
+            <ComboBox fx:id="levelFilter" promptText="Filter by Level"/>
+            <Button text="Search" />
+        </HBox>
+    </top>
+
+    <center>
+        <TableView fx:id="studentTable">
+            <columns>
+                <TableColumn text="ID" fx:id="colId" />
+                <TableColumn text="Full Name" fx:id="colName" />
+                <TableColumn text="Programme" fx:id="colProgramme" />
+                <TableColumn text="GPA" fx:id="colGpa" />
+                <TableColumn text="Status" fx:id="colStatus" />
+            </columns>
+        </TableView>
+    </center>
+
+    <right>
+        <VBox spacing="10" style="-fx-padding: 10; -fx-background-color: #f4f4f4;">
+            <Label text="Student Details" style="-fx-font-weight: bold;"/>
+            <TextField fx:id="idInput" promptText="Student ID"/>
+            <TextField fx:id="nameInput" promptText="Full Name"/>
+            <TextField fx:id="programmeInput" promptText="Programme"/>
+            <TextField fx:id="gpaInput" promptText="GPA"/>
+            <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity"/>
+        </VBox>
+    </right>
+</BorderPane>

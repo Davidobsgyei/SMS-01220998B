@@ -2,6 +2,8 @@ package com.studentmanagement.ui;
 
 import com.studentmanagement.repository.DatabaseConnection;
 import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
@@ -10,17 +12,15 @@ import javafx.stage.Stage;
 public class MainApp extends Application {
 
     @Override
-    public void start(Stage primaryStage) {
-        // Initialize the database on startup
-        DatabaseConnection.initializeDatabase();
+    public void start(Stage primaryStage) throws Exception {
+        DatabaseConnection.initializeDatabase(); // [cite: 188]
 
-        // For now, we create a simple placeholder to test if JavaFX runs
-        Label label = new Label("Student Management System Plus - Skeleton Loaded");
-        StackPane root = new StackPane(label);
-        Scene scene = new Scene(root, 800, 600);
+        // Load the FXML file
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/students_view.fxml"));
+        Parent root = loader.load();
 
         primaryStage.setTitle("Student Management System Plus");
-        primaryStage.setScene(scene);
+        primaryStage.setScene(new Scene(root, 900, 600));
         primaryStage.show();
     }
 
