@@ -2,6 +2,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
+<?import javafx.geometry.Insets?>
 <BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.studentmanagement.ui.StudentsController">
     <top>
         <HBox spacing="10" style="-fx-padding: 10;">
@@ -32,6 +33,18 @@
             <TextField fx:id="programmeInput" promptText="Programme"/>
             <TextField fx:id="gpaInput" promptText="GPA"/>
             <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity"/>
+            <Button maxWidth="Infinity"
+                    onAction="#handleUpdate"
+                    style="-fx-background-color: #3498db; -fx-text-fill: white;"
+                    text="Update Selected" />
+            <Button maxWidth="Infinity"
+                    onAction="#handleDelete"
+                    style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;"
+                    text="Delete Selected Student">
+                <VBox.margin>
+                    <Insets top="10.0" />
+                </VBox.margin>
+            </Button>
         </VBox>
     </right>
 </BorderPane>

@@ -55,4 +55,32 @@ public class StudentRepository {
         }
         return students;
     }
+    public void deleteStudent(String studentId) throws SQLException {
+        String sql = "DELETE FROM students WHERE student_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, studentId);
+            int affectedRows = pstmt.executeUpdate();
+
+            if (affectedRows == 0) {
+                throw new SQLException("Deleting student failed, no rows affected.");
+            }
+        }
+    }
+    public void updateStudent(Student student) throws SQLException {
+        String sql = "UPDATE students SET full_name = ?, gpa = ?, programme = ? WHERE student_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, student.getFullName());
+            pstmt.setDouble(2, student.getGpa());
+            pstmt.setString(3, student.getProgramme());
+            pstmt.setString(4, student.getStudentId());
+
+            pstmt.executeUpdate();
+        }
+    }
 }

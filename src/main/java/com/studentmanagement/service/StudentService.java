@@ -31,4 +31,15 @@ public class StudentService {
     public List<Student> getAllStudents() throws SQLException {
         return repository.getAllStudents();
     }
+    public void removeStudent(String studentId) throws Exception {
+        // This calls the deleteStudent method we just added to the Repository
+        repository.deleteStudent(studentId);
+    }
+    public void modifyStudent(Student student) throws Exception {
+        // Basic validation before updating
+        if (student.getGpa() < 0 || student.getGpa() > 4.0) {
+            throw new Exception("Invalid GPA. Must be between 0.0 and 4.0");
+        }
+        repository.updateStudent(student);
+    }
 }
