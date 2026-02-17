@@ -1,67 +1,90 @@
 package com.studentmanagement.ui;
 
 import com.studentmanagement.domain.Student;
+import com.studentmanagement.service.StudentService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 
 public class StudentsController {
 
-    // Links to the FXID in your FXML
+    // 1. Keep these - they link to your FXML
     @FXML private TableView<Student> studentTable;
     @FXML private TableColumn<Student, String> colId;
     @FXML private TableColumn<Student, String> colName;
-    @FXML private TableColumn<Student, String> colProgramme;
     @FXML private TableColumn<Student, Double> colGpa;
-    @FXML private TableColumn<Student, String> colStatus;
-
+    @FXML private TableColumn<Student,String> colStatus;
+    @FXML private TableColumn<Student, String> colProgramme;
+    @FXML private TextField programmeInput;
     @FXML private TextField idInput;
     @FXML private TextField nameInput;
-    @FXML private TextField programmeInput;
     @FXML private TextField gpaInput;
 
+
+    // 2. Add the Service Layer and the List
+    private final StudentService studentService = new StudentService();
     private ObservableList<Student> studentList = FXCollections.observableArrayList();
 
     @FXML
     public void initialize() {
-        // This tells the table which field from the Student class goes in which column
+        // Set up how the table displays data
         colId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
-        colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
         colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
+        colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
 
-        // Step B: Tell the table to watch our list
-        studentTable.setItems(studentList);
+        // Load existing data from the database
+        loadData();
+    }
+
+    private void loadData() {
+        try {
+            studentList.clear();
+            studentList.addAll(studentService.getAllStudents());
+            studentTable.setItems(studentList);
+        } catch (Exception e) {
+            System.err.println("Load error: " + e.getMessage());
+        }
     }
 
     @FXML
     public void handleAddStudent() {
-        // For Week 1, we just print to console to prove the UI works
-        String name = nameInput.getText();
-        String id = idInput.getText();
-        System.out.println("UI Test: Attempting to add student: " + name + " (ID: " + id + ")");
+        try {
+            // Create the student object from UI inputs
+            Student newStudent = new Student(
+                    idInput.getText(),
+                    nameInput.getText(),
+                    "ELECTRICAL/ELECTRONIC ENGINEERING", // Placeholder for now
+                    100,
+                    Double.parseDouble(gpaInput.getText()),
+                    "test@test.com",
+                    "0240000000",
+                    "Active"
+            );
 
-        // Clear fields after clicking
-        nameInput.clear();
+            // SEND TO SERVICE for validation and saving
+            studentService.saveStudent(newStudent);
+
+            // Update UI only if the service didn't throw an error
+            studentList.add(newStudent);
+            clearFields();
+
+            System.out.println("Success: Student saved to database!");
+
+        } catch (NumberFormatException e) {
+            System.err.println("Error: GPA must be a number!");
+        } catch (Exception e) {
+            // This catches your custom validation errors (e.g., "Full name cannot contain numbers")
+            System.err.println("Validation Error: " + e.getMessage());
+        }
+    }
+
+    private void clearFields() {
         idInput.clear();
-        String prog = programmeInput.getText();
-        double gpa = Double.parseDouble(gpaInput.getText()); // Warning: Simple version for now
-
-        // Create a new student object
-        Student newStudent = new Student(id, name, prog, 100, gpa, "email@test.com", "0240000000", "Active");
-
-        // Add to the list that the table is watching
-        studentList.add(newStudent);
-
-        System.out.println("UI Test: Added " + name + " to the visible table.");
-
-        // Clear the inputs
-        idInput.clear();
         nameInput.clear();
+        gpaInput.clear();
     }
 }

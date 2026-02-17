@@ -21,6 +21,7 @@
                 <TableColumn text="Status" fx:id="colStatus" />
             </columns>
         </TableView>
+
     </center>
 
     <right>
