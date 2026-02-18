@@ -1,50 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-
+<?import javafx.scene.chart.*?>
 <?import javafx.geometry.Insets?>
-<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.studentmanagement.ui.StudentsController">
-    <top>
-        <HBox spacing="10" style="-fx-padding: 10;">
-            <TextField fx:id="searchField" promptText="Search by ID or Name"/>
-            <ComboBox fx:id="levelFilter" promptText="Filter by Level"/>
-            <Button text="Search" />
-        </HBox>
-    </top>
 
-    <center>
-        <TableView fx:id="studentTable">
-            <columns>
-                <TableColumn text="ID" fx:id="colId" />
-                <TableColumn text="Full Name" fx:id="colName" />
-                <TableColumn text="Programme" fx:id="colProgramme" />
-                <TableColumn text="GPA" fx:id="colGpa" />
-                <TableColumn text="Status" fx:id="colStatus" />
-            </columns>
-        </TableView>
+<TabPane fx:id="mainTabPane" xmlns:fx="http://javafx.com/fxml" fx:controller="com.studentmanagement.ui.StudentsController">
+    <tabs>
+        <Tab text="Dashboard" closable="false" onSelectionChanged="#updateDashboard">
+            <ScrollPane fitToWidth="true">
+                <VBox spacing="25" style="-fx-padding: 30; -fx-background-color: #f4f7f6;">
+                    <Label text="System Overview" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
 
-    </center>
+                    <HBox spacing="15">
+                        <Button text="Manage Students" onAction="#navToManagement" style="-fx-background-color: #3498db; -fx-text-fill: white;"/>
+                        <Button text="Settings" onAction="#navToSettings" style="-fx-background-color: #95a5a6; -fx-text-fill: white;"/>
+                        <Button text="Import CSV" onAction="#handleImportCSV" />
+                        <Button text="Export CSV" onAction="#handleExportCSV" />
+                    </HBox>
 
-    <right>
-        <VBox spacing="10" style="-fx-padding: 10; -fx-background-color: #f4f4f4;">
-            <Label text="Student Details" style="-fx-font-weight: bold;"/>
-            <TextField fx:id="idInput" promptText="Student ID"/>
-            <TextField fx:id="nameInput" promptText="Full Name"/>
-            <TextField fx:id="programmeInput" promptText="Programme"/>
-            <TextField fx:id="gpaInput" promptText="GPA"/>
-            <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity"/>
-            <Button maxWidth="Infinity"
-                    onAction="#handleUpdate"
-                    style="-fx-background-color: #3498db; -fx-text-fill: white;"
-                    text="Update Selected" />
-            <Button maxWidth="Infinity"
-                    onAction="#handleDelete"
-                    style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;"
-                    text="Delete Selected Student">
-                <VBox.margin>
-                    <Insets top="10.0" />
-                </VBox.margin>
-            </Button>
-        </VBox>
-    </right>
-</BorderPane>
+                    <FlowPane hgap="20" vgap="20">
+                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
+                            <Label text="Total Students" />
+                            <Label fx:id="totalCountLabel" text="0" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        </VBox>
+                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
+                            <Label text="Active Students" style="-fx-text-fill: green;"/>
+                            <Label fx:id="activeCountLabel" text="0" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        </VBox>
+                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
+                            <Label text="Inactive Students" style="-fx-text-fill: red;"/>
+                            <Label fx:id="inactiveCountLabel" text="0" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        </VBox>
+                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
+                            <Label text="Average GPA" style="-fx-text-fill: blue;"/>
+                            <Label fx:id="avgGpaLabel" text="0.00" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        </VBox>
+                    </FlowPane>
+
+                    <Separator />
+                    <PieChart fx:id="gpaChart" title="Performance Distribution" prefHeight="300" />
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <Tab text="Student Management" closable="false">
+            <BorderPane>
+                <top>
+                    <HBox spacing="10" style="-fx-padding: 10; -fx-background-color: #eee;">
+                        <TextField fx:id="searchField" promptText="Search ID or Name" onKeyReleased="#handleSearch" HBox.hgrow="ALWAYS"/>
+                    </HBox>
+                </top>
+                <center>
+                    <TableView fx:id="studentTable">
+                        <columns>
+                            <TableColumn text="ID" fx:id="colId" />
+                            <TableColumn text="Full Name" fx:id="colName" />
+                            <TableColumn text="Programme" fx:id="colProgramme" />
+                            <TableColumn text="GPA" fx:id="colGpa" />
+                            <TableColumn text="Status" fx:id="colStatus" />
+                        </columns>
+                    </TableView>
+                </center>
+                <right>
+                    <VBox spacing="10" style="-fx-padding: 10; -fx-background-color: #f9f9f9;" minWidth="220">
+                        <Label text="Editor" style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="idInput" promptText="ID"/>
+                        <TextField fx:id="nameInput" promptText="Name"/>
+                        <TextField fx:id="gpaInput" promptText="GPA"/>
+                        <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity"/>
+                        <Button text="Update Selected" onAction="#handleUpdate" maxWidth="Infinity"/>
+                        <Button text="Delete Selected" onAction="#handleDelete" maxWidth="Infinity" style="-fx-background-color: #e74c3c; -fx-text-fill: white;"/>
+                    </VBox>
+                </right>
+            </BorderPane>
+        </Tab>
+
+        <Tab text="Settings" closable="false">
+            <VBox spacing="15" style="-fx-padding: 30;">
+                <Label text="GPA Threshold Configuration" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Excellent (≥):" minWidth="100"/>
+                    <TextField fx:id="excellentThresholdInput" text="3.5" prefWidth="60"/>
+                </HBox>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="At Risk (&lt;):" minWidth="100"/>
+                    <TextField fx:id="atRiskThresholdInput" text="2.0" prefWidth="60"/>
+                </HBox>
+                <Button text="Save Settings" onAction="#saveSettings" style="-fx-background-color: #2ecc71; -fx-text-fill: white;"/>
+            </VBox>
+        </Tab>
+    </tabs>
+</TabPane>

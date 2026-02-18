@@ -83,4 +83,8 @@ public class StudentRepository {
             pstmt.executeUpdate();
         }
     }
+    // Option A: Just pass the error up (easiest)
+    public void removeStudent(String studentId) throws Exception {
+        deleteStudent(studentId);
+    }
 }

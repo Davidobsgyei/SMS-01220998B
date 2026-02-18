@@ -16,7 +16,7 @@ public class MainApp extends Application {
         DatabaseConnection.initializeDatabase(); // [cite: 188]
 
         // Load the FXML file
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/students_view.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/Students_view.fxml"));
         Parent root = loader.load();
 
         primaryStage.setTitle("Student Management System Plus");
