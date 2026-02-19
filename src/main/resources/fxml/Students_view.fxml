@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.chart.*?>
 <?import javafx.geometry.Insets?>
 
-<TabPane fx:id="mainTabPane" xmlns:fx="http://javafx.com/fxml" fx:controller="com.studentmanagement.ui.StudentsController">
+<TabPane fx:id="mainTabPane"
+         xmlns="http://javafx.com/javafx/17"
+         xmlns:fx="http://javafx.com/fxml/1"
+         fx:controller="com.studentmanagement.ui.StudentsController">
     <tabs>
-        <Tab text="Dashboard" closable="false" onSelectionChanged="#updateDashboard">
+        <Tab text="Student Dashboard" closable="false" onSelectionChanged="#updateDashboard">
             <ScrollPane fitToWidth="true">
                 <VBox spacing="25" style="-fx-padding: 30; -fx-background-color: #f4f7f6;">
                     <Label text="System Overview" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
 
                     <HBox spacing="15">
                         <Button text="Manage Students" onAction="#navToManagement" style="-fx-background-color: #3498db; -fx-text-fill: white;"/>
-                        <Button text="Settings" onAction="#navToSettings" style="-fx-background-color: #95a5a6; -fx-text-fill: white;"/>
-                        <Button text="Import CSV" onAction="#handleImportCSV" />
-                        <Button text="Export CSV" onAction="#handleExportCSV" />
+
+
                     </HBox>
 
                     <FlowPane hgap="20" vgap="20">
@@ -70,24 +73,13 @@
                         <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity"/>
                         <Button text="Update Selected" onAction="#handleUpdate" maxWidth="Infinity"/>
                         <Button text="Delete Selected" onAction="#handleDelete" maxWidth="Infinity" style="-fx-background-color: #e74c3c; -fx-text-fill: white;"/>
+                        <Button text="Import CSV" onAction="#handleImportCSV" />
+                        <Button text="Export CSV" onAction="#handleExportCSV" />
                     </VBox>
                 </right>
             </BorderPane>
         </Tab>
 
-        <Tab text="Settings" closable="false">
-            <VBox spacing="15" style="-fx-padding: 30;">
-                <Label text="GPA Threshold Configuration" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label text="Excellent (≥):" minWidth="100"/>
-                    <TextField fx:id="excellentThresholdInput" text="3.5" prefWidth="60"/>
-                </HBox>
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label text="At Risk (&lt;):" minWidth="100"/>
-                    <TextField fx:id="atRiskThresholdInput" text="2.0" prefWidth="60"/>
-                </HBox>
-                <Button text="Save Settings" onAction="#saveSettings" style="-fx-background-color: #2ecc71; -fx-text-fill: white;"/>
-            </VBox>
-        </Tab>
+
     </tabs>
 </TabPane>

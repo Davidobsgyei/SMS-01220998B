@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+
+<?import javafx.scene.layout.HBox?>
+<VBox spacing="15" style="-fx-padding: 30;" fx:controller="com.studentmanagement.ui.StudentsController" xmlns:fx="http://javafx.com/fxml">
+    <Label text="Global App Settings" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+    <HBox spacing="10">
+        <Label text="Excellent GPA Threshold:"/>
+        <TextField fx:id="excellentThresholdInput" text="3.5"/>
+    </HBox>
+    <HBox spacing="10">
+        <Label text="At Risk GPA Threshold:"/>
+        <TextField fx:id="atRiskThresholdInput" text="2.0"/>
+    </HBox>
+    <Button text="Apply Changes" onAction="#saveSettings" style="-fx-background-color: #2ecc71; -fx-text-fill: white;"/>
+</VBox>
