@@ -1,12 +1,15 @@
 package com.studentmanagement.service;
 
 import com.studentmanagement.domain.Student;
+import com.studentmanagement.repository.DatabaseConnection;
 import com.studentmanagement.repository.StudentRepository;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -105,6 +108,24 @@ public class StudentService {
              java.io.PrintWriter pw = new java.io.PrintWriter(fw)) {
             pw.println(java.time.LocalDateTime.now() + " - ERROR: " + message);
         } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
+    }
+    public void updateStudentStatus(String studentId, String newStatus) {
+        // This SQL query targets ONLY the status column for a specific ID
+        String sql = "UPDATE students SET status = ? WHERE student_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, newStatus);
+            pstmt.setString(2, studentId);
+
+            int affectedRows = pstmt.executeUpdate();
+            System.out.println("Database Updated: " + affectedRows + " student(s) set to " + newStatus);
+
+        } catch (SQLException e) {
+            System.err.println("Database Sync Error: " + e.getMessage());
             e.printStackTrace();
         }
     }

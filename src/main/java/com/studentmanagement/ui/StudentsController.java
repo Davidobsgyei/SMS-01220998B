@@ -3,6 +3,8 @@ package com.studentmanagement.ui;
 import com.studentmanagement.domain.Student;
 import com.studentmanagement.service.StudentService;
 import com.studentmanagement.repository.DatabaseConnection;
+import javafx.animation.FadeTransition;
+import javafx.animation.RotateTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -14,7 +16,9 @@ import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 
 import java.io.*;
 import java.net.URL;
@@ -34,7 +38,7 @@ public class StudentsController implements Initializable {
 
     // --- TABLE VIEW ---
     @FXML
-    private TableView<Student> studentTable;
+    private  TableView<Student> studentTable;
     @FXML
     private TableColumn<Student, String> colId, colName, colProgramme, colStatus;
     @FXML
@@ -58,17 +62,34 @@ public class StudentsController implements Initializable {
 
     // --- LOGIC FIELDS ---
     private final StudentService studentService = new StudentService();
-    private ObservableList<Student> studentList = FXCollections.observableArrayList();
-    private double excellentThreshold = 3.5;
-    private double atRiskThreshold = 2.0;
-
+    private static ObservableList<Student> studentList = FXCollections.observableArrayList();
+    private static double excellentThreshold = 3.5;
+    private static double atRiskThreshold = 2.0;
+    // Add this line at the very top with your other @FXML variables
+    private static TableView<Student> sharedTable;
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         // 1. Capture MainShell Root (The Bridge)
         if (rootPane != null) {
             staticRootPane = rootPane;
         }
-
+        if (studentTable != null) {
+            sharedTable = studentTable; // Link the UI table to our bridge
+            setupTable();
+            loadStudentData();
+        }
+        if (mainCanvas != null) {
+            FadeTransition fadeIn = new FadeTransition(Duration.seconds(1.5), mainCanvas);
+            fadeIn.setFromValue(0);
+            fadeIn.setToValue(1);
+            fadeIn.play();
+        }
+        // Fill the settings fields with the current standards so they aren't empty
+        if (inactiveThresholdInput != null) {
+            inactiveThresholdInput.setText(String.valueOf(inactiveThreshold));
+            excellentThresholdInput.setText(String.valueOf(excellentThreshold));
+            atRiskThresholdInput.setText(String.valueOf(atRiskThreshold));
+        }
         // 2. Initialize Student Management UI (If current view is Students)
         if (studentTable != null) {
             setupTableColumns();
@@ -163,6 +184,7 @@ public class StudentsController implements Initializable {
     @FXML
     public void handleAddStudent() {
         try {
+
             Student newStudent = new Student(
                     idInput.getText(),
                     nameInput.getText(),
@@ -271,6 +293,18 @@ public class StudentsController implements Initializable {
         } catch (Exception e) {
             System.err.println("Dashboard error: " + e.getMessage());
         }
+        long inactiveCount = studentList.stream()
+                .filter(s -> "Inactive".equalsIgnoreCase(s.getStatus()) || s.getGpa() < inactiveThreshold)
+                .count();
+
+        if (inactiveCountLabel != null) {
+            inactiveCountLabel.setText(String.valueOf(inactiveCount));
+        }
+
+        // Update your PieChart to show the "Inactive" slice
+        if (gpaChart != null) {
+            // ... (Update chart data)
+        }
     }
 
     private void updateDashboardStats() {
@@ -283,6 +317,18 @@ public class StudentsController implements Initializable {
         if (activeCountLabel != null) activeCountLabel.setText(String.valueOf(active));
         if (inactiveCountLabel != null) inactiveCountLabel.setText(String.valueOf(total - active));
         if (avgGpaLabel != null) avgGpaLabel.setText(String.format("%.2f", avg));
+        if (totalCountLabel == null) return; // Prevent errors if dashboard isn't loaded
+
+        long inactiveCount = studentList.stream()
+                .filter(s -> "Inactive".equalsIgnoreCase(s.getStatus()))
+                .count();
+
+        totalCountLabel.setText(String.valueOf(total));
+        inactiveCountLabel.setText(String.valueOf(inactiveCount));
+        activeCountLabel.setText(String.valueOf(total - inactiveCount));
+
+        // Refresh your PieChart data here too
+
     }
 
     @FXML
@@ -312,14 +358,63 @@ public class StudentsController implements Initializable {
     @FXML
     public void saveSettings() {
         try {
+            // 1. Capture new thresholds
+            this.excellentThreshold = Double.parseDouble(excellentThresholdInput.getText());
+            this.atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
+            this.inactiveThreshold = Double.parseDouble(inactiveThresholdInput.getText());
+
+            // 2. Loop through and Sync
+            for (Student s : studentList) {
+                String oldStatus = s.getStatus();
+                String newStatus = (s.getGpa() < inactiveThreshold) ? "Inactive" : "Active";
+
+                // Only trigger a database hit if the status actually changed
+                if (!newStatus.equals(oldStatus)) {
+                    s.setStatus(newStatus);
+                    // PERSISTENCE: Save to DB
+                    studentService.updateStudentStatus(s.getStudentId(), newStatus);
+                }
+            }
+
+            // 3. Refresh UI
+            sharedTable.refresh();
+            updateDashboard();
+
+            showAlert("Sync Complete", "Database updated with new academic standards.", Alert.AlertType.INFORMATION);
+
+        } catch (NumberFormatException e) {
+            showAlert("Error", "Invalid threshold values.", Alert.AlertType.ERROR);
+        }
+        try {
+            // 1. Update the static standards from the text fields
             excellentThreshold = Double.parseDouble(excellentThresholdInput.getText());
             atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
-            updateDashboard();
-            showAlert("Settings Saved", "Thresholds updated and Dashboard refreshed.", Alert.AlertType.INFORMATION);
+            inactiveThreshold = Double.parseDouble(inactiveThresholdInput.getText());
+
+            // 2. Loop through the list and update the database
+            for (Student s : studentList) {
+                String newStatus = (s.getGpa() < inactiveThreshold) ? "Inactive" : "Active";
+
+                if (!newStatus.equals(s.getStatus())) {
+                    s.setStatus(newStatus);
+                    // Sync with Database
+                    studentService.updateStudentStatus(s.getStudentId(), newStatus);
+                }
+            }
+
+            // 3. Force the table to repaint with new colors
+            if (sharedTable != null) {
+                sharedTable.refresh();
+            }
+
+            showAlert("Success", "Standards applied globally!", Alert.AlertType.INFORMATION);
+
         } catch (NumberFormatException e) {
-            showAlert("Error", "Please enter valid numbers for thresholds.", Alert.AlertType.ERROR);
+            showAlert("Error", "Please enter valid numbers (e.g., 2.5)", Alert.AlertType.ERROR);
         }
+
     }
+
 
     @FXML
     public void handleSaveSettings() {
@@ -407,6 +502,25 @@ public class StudentsController implements Initializable {
         } catch (Exception e) {
             System.err.println("Could not refresh data: " + e.getMessage());
         }
+        try {
+            List<Student> students = studentService.getAllStudents();
+
+            // APPLY THE STANDARD:
+            // Automatically mark students as Inactive if they fall below the threshold
+            for (Student s : students) {
+                if (s.getGpa() < inactiveThreshold) {
+                    s.setStatus("Inactive");
+                } else if (s.getStatus().equals("Inactive") && s.getGpa() >= inactiveThreshold) {
+                    // Optional: reactivate if they improve
+                    s.setStatus("Active");
+                }
+            }
+
+            studentList.setAll(students);
+            updateDashboardStats();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @FXML public void resetTable() { loadStudentData(); }
@@ -425,4 +539,106 @@ public class StudentsController implements Initializable {
         alert.setContentText(content);
         alert.showAndWait();
     }
+    // Inside StudentsController.java
+
+    private double inactiveThreshold = 1.0; // The standard for "Academic Inactivity"
+
+    @FXML
+    private TextField inactiveThresholdInput; // Add this to your Settings FXML later
+    private void applyStatusStandard() {
+        for (Student s : studentList) {
+            // Apply the "Standard": If GPA is below threshold, they are Inactive
+            if (s.getGpa() < inactiveThreshold) {
+                s.setStatus("Inactive");
+            } else {
+                // Otherwise, they stay/become Active
+                s.setStatus("Active");
+            }
+
 }
+    }private void setupTable() {
+        colId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
+        colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
+        colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
+
+        // CUSTOM CELL FACTORY FOR STATUS COLORS
+        colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
+        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item == null || empty) {
+                    setText(null);
+                    getStyleClass().removeAll("status-active", "status-inactive");
+                } else {
+                    setText(item);
+                    if (item.equalsIgnoreCase("Inactive")) {
+                        getStyleClass().add("status-inactive");
+                        getStyleClass().remove("status-active");
+                    } else {
+                        getStyleClass().add("status-active");
+                        getStyleClass().remove("status-inactive");
+                    }
+                }
+            }
+        });
+        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item == null || empty) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    // Apply different colors based on the status text
+                    if (item.equalsIgnoreCase("Inactive")) {
+                        setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;"); // Red for Inactive
+                    } else if (item.equalsIgnoreCase("Active")) {
+                        setStyle("-fx-text-fill: #2ecc71; -fx-font-weight: bold;"); // Green for Active
+                    } else {
+                        setStyle("-fx-text-fill: #34495e;"); // Default dark blue/grey
+                    }
+                }
+            }
+        });
+
+    }
+    @FXML private StackPane mainCanvas; // Add fx:id="mainCanvas" to your FXML StackPane
+    private void updateChart(int active, int inactive) {
+        ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList(
+                new PieChart.Data("Active", active),
+                new PieChart.Data("Inactive", inactive)
+        );
+
+        gpaChart.setData(pieChartData);
+
+        // Apply specific colors to slices after they are rendered
+        for (PieChart.Data data : gpaChart.getData()) {
+            if (data.getName().equals("Active")) {
+                data.getNode().getStyleClass().add("chart-active");
+            } else {
+                data.getNode().getStyleClass().add("chart-inactive");
+            }
+        }
+
+    }
+    @FXML private Button refreshBtn;
+
+    @FXML
+    private void handleRefresh() {
+        // 1. Create the spin animation
+        RotateTransition rt = new RotateTransition(Duration.seconds(1), refreshBtn);
+        rt.setByAngle(360);
+        rt.setCycleCount(1);
+
+        // 2. Run the logic when animation starts
+        rt.setOnFinished(e -> {
+            updateDashboard(); // Refresh your stats and chart
+            studentTable.refresh(); // Refresh the table
+        });
+
+        rt.play();
+    }
+
+               }

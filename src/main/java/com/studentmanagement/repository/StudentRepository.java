@@ -87,4 +87,20 @@ public class StudentRepository {
     public void removeStudent(String studentId) throws Exception {
         deleteStudent(studentId);
     }
+    // Ensure 'newStatus' is defined in the parentheses here
+    public void updateStudentStatus(String studentId, String newStatus) {
+        String sql = "UPDATE students SET status = ? WHERE student_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // Now 'newStatus' is a symbol the compiler recognizes
+            pstmt.setString(1, newStatus);
+            pstmt.setString(2, studentId);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

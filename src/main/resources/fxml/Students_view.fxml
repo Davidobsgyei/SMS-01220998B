@@ -8,78 +8,96 @@
 <TabPane fx:id="mainTabPane"
          xmlns="http://javafx.com/javafx/17"
          xmlns:fx="http://javafx.com/fxml/1"
-         fx:controller="com.studentmanagement.ui.StudentsController">
+         stylesheets="@../css/style.css"
+         fx:controller="com.studentmanagement.ui.StudentsController"
+         styleClass="dashboard-tabpane">
     <tabs>
         <Tab text="Student Dashboard" closable="false" onSelectionChanged="#updateDashboard">
-            <ScrollPane fitToWidth="true">
-                <VBox spacing="25" style="-fx-padding: 30; -fx-background-color: #f4f7f6;">
-                    <Label text="System Overview" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
+            <ScrollPane fitToWidth="true" styleClass="transparent-scroll">
+                <VBox spacing="25" styleClass="dashboard-container">
+                    <Label text="System Overview" styleClass="view-header"/>
 
                     <HBox spacing="15">
-                        <Button text="Manage Students" onAction="#navToManagement" style="-fx-background-color: #3498db; -fx-text-fill: white;"/>
-
-
+                        <Button text="🏠 Back to Home" onAction="#goHome" styleClass="btn-secondary"/>
+                        <Button text="Manage Students" onAction="#navToManagement" styleClass="btn-primary"/>
+                        <Button fx:id="refreshBtn" text="🔄 Refresh Data" onAction="#handleRefresh" styleClass="btn-refresh"/>
                     </HBox>
 
                     <FlowPane hgap="20" vgap="20">
-                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
-                            <Label text="Total Students" />
-                            <Label fx:id="totalCountLabel" text="0" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        <VBox styleClass="stat-card" alignment="CENTER">
+                            <Label text="Total Students" styleClass="stat-label-small"/>
+                            <Label fx:id="totalCountLabel" text="0" styleClass="stat-value"/>
                         </VBox>
-                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
-                            <Label text="Active Students" style="-fx-text-fill: green;"/>
-                            <Label fx:id="activeCountLabel" text="0" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        <VBox styleClass="stat-card, active-card" alignment="CENTER">
+                            <Label text="Active Students" styleClass="stat-label-small"/>
+                            <Label fx:id="activeCountLabel" text="0" styleClass="stat-value"/>
                         </VBox>
-                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
-                            <Label text="Inactive Students" style="-fx-text-fill: red;"/>
-                            <Label fx:id="inactiveCountLabel" text="0" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        <VBox styleClass="stat-card, inactive-card" alignment="CENTER">
+                            <Label text="Inactive Students" styleClass="stat-label-small"/>
+                            <Label fx:id="inactiveCountLabel" text="0" styleClass="stat-value"/>
                         </VBox>
-                        <VBox alignment="CENTER" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #ddd;">
-                            <Label text="Average GPA" style="-fx-text-fill: blue;"/>
-                            <Label fx:id="avgGpaLabel" text="0.00" style="-fx-font-size: 28; -fx-font-weight: bold;"/>
+                        <VBox styleClass="stat-card, gpa-card" alignment="CENTER">
+                            <Label text="Average GPA" styleClass="stat-label-small"/>
+                            <Label fx:id="avgGpaLabel" text="0.00" styleClass="stat-value"/>
                         </VBox>
                     </FlowPane>
 
                     <Separator />
-                    <PieChart fx:id="gpaChart" title="Performance Distribution" prefHeight="300" />
+
+                    <VBox styleClass="stat-card" alignment="CENTER" spacing="10">
+                        <Label text="Performance Distribution" styleClass="editor-title" />
+                        <PieChart fx:id="gpaChart" prefHeight="350" legendSide="BOTTOM" />
+                    </VBox>
                 </VBox>
             </ScrollPane>
         </Tab>
 
         <Tab text="Student Management" closable="false">
-            <BorderPane>
+            <BorderPane styleClass="management-root">
                 <top>
-                    <HBox spacing="10" style="-fx-padding: 10; -fx-background-color: #eee;">
-                        <TextField fx:id="searchField" promptText="Search ID or Name" onKeyReleased="#handleSearch" HBox.hgrow="ALWAYS"/>
+                    <HBox spacing="10" styleClass="management-toolbar">
+                        <Button text="🏠 Home" onAction="#goHome" styleClass="btn-secondary"/>
+                        <Separator orientation="VERTICAL" />
+                        <TextField fx:id="searchField" promptText="Search ID or Name" onKeyReleased="#handleSearch" HBox.hgrow="ALWAYS" styleClass="modern-search"/>
                     </HBox>
                 </top>
                 <center>
-                    <TableView fx:id="studentTable">
-                        <columns>
-                            <TableColumn text="ID" fx:id="colId" />
-                            <TableColumn text="Full Name" fx:id="colName" />
-                            <TableColumn text="Programme" fx:id="colProgramme" />
-                            <TableColumn text="GPA" fx:id="colGpa" />
-                            <TableColumn text="Status" fx:id="colStatus" />
-                        </columns>
-                    </TableView>
+                    <VBox spacing="10" style="-fx-padding: 15;">
+                        <TableView fx:id="studentTable" styleClass="modern-table" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn text="ID" fx:id="colId" prefWidth="80"/>
+                                <TableColumn text="Full Name" fx:id="colName" prefWidth="200"/>
+                                <TableColumn text="Programme" fx:id="colProgramme" prefWidth="150"/>
+                                <TableColumn text="GPA" fx:id="colGpa" prefWidth="80"/>
+                                <TableColumn text="Status" fx:id="colStatus" prefWidth="100"/>
+                            </columns>
+                            <placeholder>
+                                <Label text="No Student Records Found" style="-fx-text-fill: #95a5a6; -fx-font-size: 16;"/>
+                            </placeholder>
+                            <columnResizePolicy>
+                                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            </columnResizePolicy>
+                        </TableView>
+                    </VBox>
                 </center>
                 <right>
-                    <VBox spacing="10" style="-fx-padding: 10; -fx-background-color: #f9f9f9;" minWidth="220">
-                        <Label text="Editor" style="-fx-font-weight: bold;"/>
-                        <TextField fx:id="idInput" promptText="ID"/>
-                        <TextField fx:id="nameInput" promptText="Name"/>
-                        <TextField fx:id="gpaInput" promptText="GPA"/>
-                        <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity"/>
-                        <Button text="Update Selected" onAction="#handleUpdate" maxWidth="Infinity"/>
-                        <Button text="Delete Selected" onAction="#handleDelete" maxWidth="Infinity" style="-fx-background-color: #e74c3c; -fx-text-fill: white;"/>
-                        <Button text="Import CSV" onAction="#handleImportCSV" />
-                        <Button text="Export CSV" onAction="#handleExportCSV" />
+                    <VBox spacing="15" styleClass="editor-pane">
+                        <Label text="STUDENT EDITOR" styleClass="editor-title"/>
+                        <TextField fx:id="idInput" promptText="Student ID" styleClass="editor-input"/>
+                        <TextField fx:id="nameInput" promptText="Full Name" styleClass="editor-input"/>
+                        <TextField fx:id="gpaInput" promptText="Current GPA" styleClass="editor-input"/>
+                        <VBox spacing="8" style="-fx-padding: 10 0 0 0;">
+                            <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity" styleClass="btn-success"/>
+                            <Button text="Update Record" onAction="#handleUpdate" maxWidth="Infinity" styleClass="btn-primary"/>
+                            <Button text="Delete" onAction="#handleDelete" maxWidth="Infinity" styleClass="btn-danger"/>
+                        </VBox>
+
+                        <Separator style="-fx-padding: 10 0;"/>
+                        <Button text="Import CSV" onAction="#handleImportCSV" maxWidth="Infinity" styleClass="btn-outline"/>
+                        <Button text="Export CSV" onAction="#handleExportCSV" maxWidth="Infinity" styleClass="btn-outline"/>
                     </VBox>
                 </right>
             </BorderPane>
         </Tab>
-
-
     </tabs>
 </TabPane>

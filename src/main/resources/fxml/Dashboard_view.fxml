@@ -1,31 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           stylesheets="@../css/style.css"
+           fx:controller="com.studentmanagement.ui.StudentsController"
+           styleClass="main-canvas">
 
 
+    <VBox spacing="40" alignment="CENTER" styleClass="home-overlay">
 
+        <VBox alignment="CENTER" spacing="10">
+            <Label text="University Command Center" styleClass="sub-header" />
+            <Label text="ACCRA TECHNICAL UNIVERSITY" styleClass="main-title" />
+            <Separator maxWidth="400" style="-fx-opacity: 0.3;"/>
+        </VBox>
 
-<VBox xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.studentmanagement.ui.StudentsController"
-      spacing="30" alignment="CENTER">
-    <Label text="University Command Center" />
-    <VBox spacing="30" alignment="CENTER" style="-fx-padding: 50; -fx-background-color: #f0f2f5;">
-        <Label text="ACCRA TECHNICAL UNIVERSITY" style="-fx-font-size: 32; -fx-font-weight: bold;" />
+        <GridPane hgap="30" vgap="30" alignment="CENTER">
+            <Button text="📂 Student Records" onAction="#showManagement"
+                    prefHeight="160" prefWidth="260" styleClass="nav-card-blue" />
 
-        <GridPane hgap="20" vgap="20" alignment="CENTER">
-            <Button text="Student Records" onAction="#showManagement" prefHeight="100" prefWidth="200" style="-fx-font-size: 16; -fx-background-color: #3498db; -fx-text-fill: white;" />
-            <Button text="System Settings" onAction="#showSettings" prefHeight="100" prefWidth="200" style="-fx-font-size: 16; -fx-background-color: #95a5a6; -fx-text-fill: white;" GridPane.columnIndex="1" />
-
+            <Button text="⚙️ System Settings" onAction="#showSettings"
+                    prefHeight="160" prefWidth="260" styleClass="nav-card-grey"
+                    GridPane.columnIndex="1" />
         </GridPane>
 
-        <HBox spacing="20" alignment="CENTER">
-            <VBox style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 10;">
+        <HBox spacing="30" alignment="CENTER" styleClass="footer-stats">
+            <VBox alignment="CENTER" styleClass="mini-stat">
+                <Label text="System Status" styleClass="stat-label"/>
+                <Label text="Online" styleClass="stat-value-green"/>
             </VBox>
         </HBox>
-    </VBox>
-</VBox>
 
+    </VBox>
+</StackPane>
