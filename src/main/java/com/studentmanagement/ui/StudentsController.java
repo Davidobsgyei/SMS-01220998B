@@ -5,24 +5,30 @@ import com.studentmanagement.service.StudentService;
 import com.studentmanagement.repository.DatabaseConnection;
 import javafx.animation.FadeTransition;
 import javafx.animation.RotateTransition;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.effect.InnerShadow;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
 
 import java.io.*;
 import java.net.URL;
 import java.util.List;
+import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
@@ -69,52 +75,66 @@ public class StudentsController implements Initializable {
     private static TableView<Student> sharedTable;
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // 1. Capture MainShell Root (The Bridge)
+        loadThresholdFromFile();
+        if (totalCountLabel != null && totalCountLabel.getParent() != null) {
+            // We target the parent container of the labels to treat it as a card
+            totalCountLabel.getParent().getStyleClass().add("card");
+            activeCountLabel.getParent().getStyleClass().add("card");
+            inactiveCountLabel.getParent().getStyleClass().add("card");
+            avgGpaLabel.getParent().getStyleClass().add("card");
+        }
+        // 1. Setup the Root Layout Reference
         if (rootPane != null) {
             staticRootPane = rootPane;
         }
+
+        // 2. Setup Student Management (Table View)
         if (studentTable != null) {
-            sharedTable = studentTable; // Link the UI table to our bridge
+            sharedTable = studentTable;
+
+            // Define column logic first
             setupTable();
-            loadStudentData();
+
+            // Populate data
+            loadData();
+
+            // Enable search functionality
+            setupSearchFiltering();
+
+            // Selection Listener for Auto-fill fields
+            studentTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    idInput.setText(newVal.getStudentId());
+                    nameInput.setText(newVal.getFullName());
+                    gpaInput.setText(String.valueOf(newVal.getGpa()));
+                    idInput.setEditable(false);
+                }
+            });
+
+            // Ensure UI reflects status colors immediately
+            studentTable.refresh();
         }
+
+        // 3. Setup Dashboard
+        if (totalCountLabel != null) {
+            updateDashboard();
+        }
+
+        // 4. Initialize Settings Fields
+        if (atRiskThresholdInput != null) {
+            atRiskThresholdInput.setText(String.valueOf(atRiskThreshold));
+            excellentThresholdInput.setText(String.valueOf(excellentThreshold));
+            // Note: Using atRiskThreshold as the primary status driver as requested
+        }
+
+        // 5. Visual Transitions
         if (mainCanvas != null) {
             FadeTransition fadeIn = new FadeTransition(Duration.seconds(1.5), mainCanvas);
             fadeIn.setFromValue(0);
             fadeIn.setToValue(1);
             fadeIn.play();
         }
-        // Fill the settings fields with the current standards so they aren't empty
-        if (inactiveThresholdInput != null) {
-            inactiveThresholdInput.setText(String.valueOf(inactiveThreshold));
-            excellentThresholdInput.setText(String.valueOf(excellentThreshold));
-            atRiskThresholdInput.setText(String.valueOf(atRiskThreshold));
-        }
-        // 2. Initialize Student Management UI (If current view is Students)
-        if (studentTable != null) {
-            setupTableColumns();
-            loadData();
-            setupSearchFiltering();
-
-            // Selection Listener
-            studentTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
-                if (newSelection != null) {
-                    idInput.setText(newSelection.getStudentId());
-                    nameInput.setText(newSelection.getFullName());
-                    gpaInput.setText(String.valueOf(newSelection.getGpa()));
-                    idInput.setEditable(false);
-                }
-            });
-        }
-
-        // 3. Initialize Dashboard UI (If current view is Dashboard)
-        if (totalCountLabel != null) {
-            refreshStudentData();
-            updateDashboard();
-            updateDashboardStats();
-        }
     }
-
     // --- CORE NAVIGATION (REFINED) ---
     public void switchTo(String fxmlFileName) {
         try {
@@ -164,7 +184,29 @@ public class StudentsController implements Initializable {
         colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
         colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
         colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
-        colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
+        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    Student s = getTableRow().getItem();
+                    double riskThreshold = 1.5;
+
+                    // Logic: If GPA < 1.5, force status to "Inactive" visually
+                    if (s.getGpa() < riskThreshold || "Inactive".equalsIgnoreCase(s.getStatus())) {
+                        setText("Inactive (At Risk)");
+                        setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+                    } else {
+                        setText("Active");
+                        setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                    }
+                }
+            }
+        });
+
     }
 
     private void setupSearchFiltering() {
@@ -184,24 +226,44 @@ public class StudentsController implements Initializable {
     @FXML
     public void handleAddStudent() {
         try {
-
+            // 1. Create the student inside the try block
             Student newStudent = new Student(
                     idInput.getText(),
                     nameInput.getText(),
                     "Electrical/Electronic Engineering",
                     100,
                     Double.parseDouble(gpaInput.getText()),
-                    "student@school.edu", "0240000000", "Active"
+                    "student@school.edu",
+                    "0240000000",
+                    "Active" // We set them as 'Active' here...
             );
+
+            // 2. Save to database
             studentService.saveStudent(newStudent);
-            studentList.add(newStudent);
+
+            // 3. Update the UI List immediately
+            if (studentList != null) {
+                studentList.add(newStudent);
+
+                // --- THE FIX ---
+                // This forces the table to re-run the CellFactory logic.
+                // Without this, the table shows the student but doesn't
+                // 'know' to color them red/inactive yet.
+                studentTable.refresh();
+            } else {
+                loadStudentData();
+            }
+
+            // 4. Reset the form and update the dashboard stats
             clearFields();
-            showAlert("Success", "Student Added!", Alert.AlertType.INFORMATION);
             updateDashboard();
+
+            showAlert("Success", "Student Added Successfully!", Alert.AlertType.INFORMATION);
+
         } catch (NumberFormatException e) {
             showAlert("Input Error", "GPA must be a number.", Alert.AlertType.ERROR);
         } catch (Exception e) {
-            showAlert("Validation Error", e.getMessage(), Alert.AlertType.WARNING);
+            showAlert("Error", "Could not save student: " + e.getMessage(), Alert.AlertType.ERROR);
         }
     }
 
@@ -262,49 +324,116 @@ public class StudentsController implements Initializable {
         }
     }
 
-    // --- DASHBOARD & REPORTS ---
-
     @FXML
     public void updateDashboard() {
         try {
+            // 1. Fetch the latest data from the database
             List<Student> students = studentService.getAllStudents();
-            if (students.isEmpty()) return;
 
+            if (students == null || students.isEmpty()) {
+                resetDashboardLabels();
+                return;
+            }
+
+            // 2. Calculations using the GLOBAL atRiskThreshold
             long total = students.size();
-            long active = students.stream().filter(s -> "Active".equalsIgnoreCase(s.getStatus())).count();
-            double avg = students.stream().mapToDouble(Student::getGpa).average().orElse(0.0);
 
-            if (totalCountLabel != null) {
+            // Count Inactive: Anyone with GPA below the threshold
+            long inactive = students.stream()
+                    .filter(s -> s.getGpa() < atRiskThreshold)
+                    .count();
+
+            // Count Active: Everyone else
+            long active = total - inactive;
+
+            // Calculate Average GPA
+            double avg = students.stream()
+                    .mapToDouble(Student::getGpa)
+                    .average()
+                    .orElse(0.0);
+
+            // 3. Thread-safe UI Updates
+            Platform.runLater(() -> {
                 totalCountLabel.setText(String.valueOf(total));
                 activeCountLabel.setText(String.valueOf(active));
-                inactiveCountLabel.setText(String.valueOf(total - active));
+                inactiveCountLabel.setText(String.valueOf(inactive));
                 avgGpaLabel.setText(String.format("%.2f", avg));
-            }
 
-            if (gpaChart != null) {
-                long excellent = students.stream().filter(s -> s.getGpa() >= excellentThreshold).count();
-                long risk = students.stream().filter(s -> s.getGpa() < atRiskThreshold).count();
-                gpaChart.setData(FXCollections.observableArrayList(
-                        new PieChart.Data("Excellent", excellent),
-                        new PieChart.Data("At Risk", risk),
-                        new PieChart.Data("Normal", total - (excellent + risk))
-                ));
-            }
+                for (PieChart.Data data : gpaChart.getData()) {
+                    Node node = data.getNode();
+
+                    // Hover Enter: Brighten and Scale Up
+                    node.setOnMouseEntered(e -> {
+                        node.setScaleX(1.05);
+                        node.setScaleY(1.05);
+                        node.setEffect(new InnerShadow(10, Color.WHITE));
+                    });
+
+                    // Hover Exit: Reset to normal
+                    node.setOnMouseExited(e -> {
+                        node.setScaleX(1.0);
+                        node.setScaleY(1.0);
+                        node.setEffect(null);
+                    });
+                }
+
+                if (gpaChart != null) {
+                    gpaChart.setLegendSide(Side.RIGHT);
+                    gpaChart.setLabelsVisible(true);
+
+                    // Smooth slice color application
+                    int i = 0;
+                    for (PieChart.Data data : gpaChart.getData()) {
+                        String color = data.getName().equals("Active") ? "#2ecc71" : "#e74c3c";
+                        data.getNode().setStyle("-fx-pie-color: " + color + "; -fx-border-color: white;");
+                    }
+                }
+                if (gpaChart != null) {
+                    // Update the Pie Chart slices
+                    ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList(
+                            new PieChart.Data("Active", active),
+                            new PieChart.Data("At Risk", inactive)
+                    );
+                    gpaChart.setData(pieData);
+
+                    // Optional: Apply CSS classes for colors
+                    for (PieChart.Data data : gpaChart.getData()) {
+                        if (data.getName().equals("Active")) {
+                            data.getNode().setStyle("-fx-pie-color: #2ecc71;"); // Green
+                        } else {
+                            data.getNode().setStyle("-fx-pie-color: #e74c3c;"); // Red
+                        }
+                    }
+                }
+            });
+
         } catch (Exception e) {
-            System.err.println("Dashboard error: " + e.getMessage());
+            System.err.println("Dashboard Sync Error: " + e.getMessage());
         }
-        long inactiveCount = studentList.stream()
-                .filter(s -> "Inactive".equalsIgnoreCase(s.getStatus()) || s.getGpa() < inactiveThreshold)
+    }
+    private void updatePieChart(List<Student> students) {
+        long excellent = students.stream().filter(s -> s.getGpa() >= 3.5).count();
+        long risk = students.stream().filter(s -> s.getGpa() < 1.5).count();
+        long normal = students.size() - (excellent + risk);
+
+        ObservableList<PieChart.Data> data = FXCollections.observableArrayList(
+                new PieChart.Data("Excellent", excellent),
+                new PieChart.Data("At Risk", risk),
+                new PieChart.Data("Normal", normal)
+        );
+        gpaChart.setData(data);
+        double currentThreshold = studentService.getInactiveThreshold(); // Or however you store it
+
+        long inactiveCount = students.stream()
+                .filter(s -> {
+                    // A student is inactive ONLY if their status is "Inactive"
+                    // OR if their GPA is strictly below the threshold
+                    boolean isStatusInactive = "Inactive".equalsIgnoreCase(s.getStatus());
+                    boolean isGpaBelow = s.getGpa() < currentThreshold;
+
+                    return isStatusInactive || isGpaBelow;
+                })
                 .count();
-
-        if (inactiveCountLabel != null) {
-            inactiveCountLabel.setText(String.valueOf(inactiveCount));
-        }
-
-        // Update your PieChart to show the "Inactive" slice
-        if (gpaChart != null) {
-            // ... (Update chart data)
-        }
     }
 
     private void updateDashboardStats() {
@@ -354,65 +483,33 @@ public class StudentsController implements Initializable {
     }
 
     // --- SETTINGS ---
-
     @FXML
     public void saveSettings() {
         try {
-            // 1. Capture new thresholds
-            this.excellentThreshold = Double.parseDouble(excellentThresholdInput.getText());
+            // 1. Update the variable from UI
             this.atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
-            this.inactiveThreshold = Double.parseDouble(inactiveThresholdInput.getText());
 
-            // 2. Loop through and Sync
+            // 2. Save to the hard drive so it stays after restart
+            saveThresholdToFile(this.atRiskThreshold);
+
+            // 3. Sync database statuses
             for (Student s : studentList) {
-                String oldStatus = s.getStatus();
-                String newStatus = (s.getGpa() < inactiveThreshold) ? "Inactive" : "Active";
-
-                // Only trigger a database hit if the status actually changed
-                if (!newStatus.equals(oldStatus)) {
-                    s.setStatus(newStatus);
-                    // PERSISTENCE: Save to DB
-                    studentService.updateStudentStatus(s.getStudentId(), newStatus);
-                }
-            }
-
-            // 3. Refresh UI
-            sharedTable.refresh();
-            updateDashboard();
-
-            showAlert("Sync Complete", "Database updated with new academic standards.", Alert.AlertType.INFORMATION);
-
-        } catch (NumberFormatException e) {
-            showAlert("Error", "Invalid threshold values.", Alert.AlertType.ERROR);
-        }
-        try {
-            // 1. Update the static standards from the text fields
-            excellentThreshold = Double.parseDouble(excellentThresholdInput.getText());
-            atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
-            inactiveThreshold = Double.parseDouble(inactiveThresholdInput.getText());
-
-            // 2. Loop through the list and update the database
-            for (Student s : studentList) {
-                String newStatus = (s.getGpa() < inactiveThreshold) ? "Inactive" : "Active";
-
+                String newStatus = (s.getGpa() < atRiskThreshold) ? "Inactive" : "Active";
                 if (!newStatus.equals(s.getStatus())) {
                     s.setStatus(newStatus);
-                    // Sync with Database
                     studentService.updateStudentStatus(s.getStudentId(), newStatus);
                 }
             }
 
-            // 3. Force the table to repaint with new colors
-            if (sharedTable != null) {
-                sharedTable.refresh();
-            }
+            // 4. Update UI
+            if (sharedTable != null) sharedTable.refresh();
+            updateDashboard();
 
-            showAlert("Success", "Standards applied globally!", Alert.AlertType.INFORMATION);
+            showAlert("Success", "Settings saved permanently.", Alert.AlertType.INFORMATION);
 
         } catch (NumberFormatException e) {
-            showAlert("Error", "Please enter valid numbers (e.g., 2.5)", Alert.AlertType.ERROR);
+            showAlert("Error", "Enter a valid number.", Alert.AlertType.ERROR);
         }
-
     }
 
 
@@ -556,54 +653,43 @@ public class StudentsController implements Initializable {
             }
 
 }
-    }private void setupTable() {
+    }
+    private void setupTable() {
         colId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
         colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
         colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
-
-        // CUSTOM CELL FACTORY FOR STATUS COLORS
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (item == null || empty) {
-                    setText(null);
-                    getStyleClass().removeAll("status-active", "status-inactive");
-                } else {
-                    setText(item);
-                    if (item.equalsIgnoreCase("Inactive")) {
-                        getStyleClass().add("status-inactive");
-                        getStyleClass().remove("status-active");
-                    } else {
-                        getStyleClass().add("status-active");
-                        getStyleClass().remove("status-inactive");
-                    }
-                }
-            }
-        });
-        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (item == null || empty) {
-                    setText(null);
-                    setStyle("");
-                } else {
-                    setText(item);
-                    // Apply different colors based on the status text
-                    if (item.equalsIgnoreCase("Inactive")) {
-                        setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;"); // Red for Inactive
-                    } else if (item.equalsIgnoreCase("Active")) {
-                        setStyle("-fx-text-fill: #2ecc71; -fx-font-weight: bold;"); // Green for Active
-                    } else {
-                        setStyle("-fx-text-fill: #34495e;"); // Default dark blue/grey
-                    }
-                }
-            }
-        });
+        colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
 
+        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                // 1. Clear styles for empty cells to prevent ghosting
+                getStyleClass().removeAll("status-badge", "status-active", "status-inactive");
+
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText(null);
+                } else {
+                    Student s = getTableRow().getItem();
+
+                    // 2. Add the base badge class
+                    getStyleClass().add("status-badge");
+
+                    // 3. Add specific color class based on GPA
+                    if (s.getGpa() < atRiskThreshold) {
+                        setText("Inactive (At Risk)");
+                        getStyleClass().add("status-inactive");
+                    } else {
+                        setText("Active");
+                        getStyleClass().add("status-active");
+                    }
+                }
+            }
+        });
     }
+
     @FXML private StackPane mainCanvas; // Add fx:id="mainCanvas" to your FXML StackPane
     private void updateChart(int active, int inactive) {
         ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList(
@@ -627,18 +713,52 @@ public class StudentsController implements Initializable {
 
     @FXML
     private void handleRefresh() {
-        // 1. Create the spin animation
         RotateTransition rt = new RotateTransition(Duration.seconds(1), refreshBtn);
         rt.setByAngle(360);
         rt.setCycleCount(1);
 
-        // 2. Run the logic when animation starts
         rt.setOnFinished(e -> {
-            updateDashboard(); // Refresh your stats and chart
-            studentTable.refresh(); // Refresh the table
+            // IMPORTANT: Re-fetch data from DB so the table actually updates!
+            loadStudentData();
+            updateDashboard();
         });
 
         rt.play();
     }
+    private void resetDashboardLabels() {
+        Platform.runLater(() -> {
+            totalCountLabel.setText("0");
+            activeCountLabel.setText("0");
+            inactiveCountLabel.setText("0");
+            avgGpaLabel.setText("0.00");
+            if (gpaChart != null) {
+                gpaChart.getData().clear();
+            }
+        });
+    }
 
-               }
+
+    private void saveThresholdToFile(double threshold) {
+        Properties props = new Properties();
+        props.setProperty("atRiskThreshold", String.valueOf(threshold));
+        try (OutputStream out = new FileOutputStream("config.properties")) {
+            props.store(out, "User Settings");
+        } catch (IOException e) {
+            System.err.println("Could not save settings: " + e.getMessage());
+        }
+    }
+
+    private void loadThresholdFromFile() {
+        Properties props = new Properties();
+        try (InputStream in = new FileInputStream("config.properties")) {
+            props.load(in);
+            String savedValue = props.getProperty("atRiskThreshold");
+            if (savedValue != null) {
+                this.atRiskThreshold = Double.parseDouble(savedValue);
+            }
+        } catch (IOException e) {
+            // If file doesn't exist yet, keep the default value
+            this.atRiskThreshold = 1.5;
+        }
+    }
+ }

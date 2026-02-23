@@ -2,10 +2,8 @@
 
 <?import javafx.scene.layout.BorderPane?>
 
-<BorderPane fx:id="rootPane" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" stylesheets="@../css/style.css" fx:controller="com.studentmanagement.ui.StudentsController">
-
+<BorderPane fx:id="rootPane" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.studentmanagement.ui.StudentsController">
     <center>
         <fx:include source="Dashboard_view.fxml" />
     </center>
 </BorderPane>
-

@@ -17,64 +17,66 @@ import java.util.stream.Collectors;
 public class StudentService {
     private final StudentRepository repository = new StudentRepository();
 
-
+    // Default value - this now controls the "At Risk" logic globally
+    private double inactiveThreshold = 1.5;
 
     public void saveStudent(Student student) throws Exception {
-        // VALIDATION RULE 1: Student ID length (4-20 chars)
         if (student.getStudentId() == null || student.getStudentId().length() < 4) {
             throw new Exception("Student ID must be at least 4 characters long.");
         }
-
-        // VALIDATION RULE 2: Full name must not contain digits
         if (student.getFullName().matches(".*\\d.*")) {
             throw new Exception("Full name cannot contain numbers.");
         }
-
-        // VALIDATION RULE 3: GPA range (0.0 - 4.0)
         if (student.getGpa() < 0.0 || student.getGpa() > 4.0) {
             throw new Exception("GPA must be between 0.0 and 4.0.");
         }
-
-        // If all pass, send to repository to save in SQLite
         repository.addStudent(student);
     }
 
     public List<Student> getAllStudents() throws SQLException {
         return repository.getAllStudents();
     }
+
     public void removeStudent(String studentId) throws Exception {
-        // This calls the deleteStudent method we just added to the Repository
         repository.deleteStudent(studentId);
     }
+
+    // UPDATED: Now uses the dynamic threshold
     public List<Student> getTopPerformers() throws Exception {
         return repository.getAllStudents().stream()
                 .filter(s -> s.getGpa() >= 3.5)
                 .collect(Collectors.toList());
     }
 
-    public List<Student> getAtRiskStudents() throws Exception {
-        return repository.getAllStudents().stream()
-                .filter(s -> s.getGpa() < 2.0)
-                .collect(Collectors.toList());
-    }
 
 
     public void modifyStudent(Student student) throws Exception {
-        // Basic validation before updating
         if (student.getGpa() < 0 || student.getGpa() > 4.0) {
             throw new Exception("Invalid GPA. Must be between 0.0 and 4.0");
         }
         repository.updateStudent(student);
     }
+
+    // This handles the "silent" add for your UI buttons
+    public boolean addStudent(Student student) {
+        try {
+            saveStudent(student);
+            return true;
+        } catch (Exception e) {
+            logError(e.getMessage());
+            return false;
+        }
+    }
+
     public String importFromCSV(File file) {
         int successCount = 0;
         StringBuilder errorLog = new StringBuilder();
-
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String line = br.readLine(); // Skip header
+            String line = br.readLine();
             while ((line = br.readLine()) != null) {
                 try {
                     String[] data = line.split(",");
+                    // Note: Ensure your Student constructor matches these 8 fields
                     Student s = new Student(data[0], data[1], data[2], 100, Double.parseDouble(data[3]), "email", "024", data[4]);
                     saveStudent(s);
                     successCount++;
@@ -85,24 +87,19 @@ public class StudentService {
         } catch (IOException e) {
             return "Critical Error: " + e.getMessage();
         }
-        return "Successfully imported " + successCount + " students.\n\nErrors:\n" + (errorLog.length() == 0 ? "None" : errorLog.toString());
+        return "Successfully imported " + successCount + " students.";
     }
+
     public void exportToCSV(List<Student> students, java.io.File file) throws Exception {
         try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
-            // 1. Write the Header Row
             writer.println("Student ID,Full Name,Programme,GPA,Status");
-
-            // 2. Loop through students and write data
             for (Student s : students) {
                 writer.printf("%s,%s,%s,%.2f,%s%n",
-                        s.getStudentId(),
-                        s.getFullName(),
-                        s.getProgramme(),
-                        s.getGpa(),
-                        s.getStatus());
+                        s.getStudentId(), s.getFullName(), s.getProgramme(), s.getGpa(), s.getStatus());
             }
         }
     }
+
     private void logError(String message) {
         try (java.io.FileWriter fw = new java.io.FileWriter("error_log.txt", true);
              java.io.PrintWriter pw = new java.io.PrintWriter(fw)) {
@@ -111,22 +108,33 @@ public class StudentService {
             e.printStackTrace();
         }
     }
-    public void updateStudentStatus(String studentId, String newStatus) {
-        // This SQL query targets ONLY the status column for a specific ID
-        String sql = "UPDATE students SET status = ? WHERE student_id = ?";
 
+    public void updateStudentStatus(String studentId, String newStatus) {
+        String sql = "UPDATE students SET status = ? WHERE student_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
             pstmt.setString(1, newStatus);
             pstmt.setString(2, studentId);
-
-            int affectedRows = pstmt.executeUpdate();
-            System.out.println("Database Updated: " + affectedRows + " student(s) set to " + newStatus);
-
+            pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.err.println("Database Sync Error: " + e.getMessage());
-            e.printStackTrace();
+            logError("Database Sync Error: " + e.getMessage());
         }
+    }
+
+    // THRESHOLD LOGIC
+    public double getInactiveThreshold() {
+        return this.inactiveThreshold;
+    }
+
+    public void setInactiveThreshold(double newThreshold) {
+        this.inactiveThreshold = newThreshold;
+    }
+    // In StudentService.java
+    private static final double INACTIVE_THRESHOLD = 1.5;
+
+    public List<Student> getAtRiskStudents() throws Exception {
+        return repository.getAllStudents().stream()
+                .filter(s -> s.getGpa() < INACTIVE_THRESHOLD)
+                .collect(Collectors.toList());
     }
 }

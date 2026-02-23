@@ -8,6 +8,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.net.URL;
 
 /**
  * The Main Entry point for the Student Management System Plus.
@@ -47,6 +48,8 @@ public class MainApp extends Application {
             System.err.println("CRITICAL ERROR: Application failed to start.");
             e.printStackTrace();
         }
+        // Try this exact block in your Start method or where you set the Scene
+
     }
 
     public static void main(String[] args) {
