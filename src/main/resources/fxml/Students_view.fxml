@@ -21,6 +21,16 @@
                         <Button text="🏠 Back to Home" onAction="#goHome" styleClass="btn-secondary"/>
                         <Button text="Manage Students" onAction="#navToManagement" styleClass="btn-primary"/>
                         <Button fx:id="refreshBtn" text="🔄 Refresh Data" onAction="#handleRefresh" styleClass="btn-refresh"/>
+                        <Button fx:id="btnReports"
+                                mnemonicParsing="false"
+                                onAction="#handleOpenReports"
+                                prefHeight="40.0"
+                                prefWidth="150.0"
+                                style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold;"
+                                text="View Reports">
+                            <graphic>
+                            </graphic>
+                        </Button>
                     </HBox>
 
                     <FlowPane hgap="20" vgap="20">
@@ -90,6 +100,7 @@
                             <Button text="Add Student" onAction="#handleAddStudent" maxWidth="Infinity" styleClass="btn-success"/>
                             <Button text="Update Record" onAction="#handleUpdate" maxWidth="Infinity" styleClass="btn-primary"/>
                             <Button text="Delete" onAction="#handleDelete" maxWidth="Infinity" styleClass="btn-danger"/>
+
                         </VBox>
 
                         <Separator style="-fx-padding: 10 0;"/>

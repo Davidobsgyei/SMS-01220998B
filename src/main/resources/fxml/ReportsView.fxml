@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.chart.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane prefHeight="600.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.studentmanagement.ui.ReportsController">
+    <children>
+        <VBox spacing="20.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0" AnchorPane.topAnchor="20.0">
+            <children>
+                <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Academic Performance Dashboard">
+                    <font>
+                        <Font name="System Bold" size="24.0" />
+                    </font>
+                </Text>
+
+                <HBox spacing="15.0">
+                    <children>
+                        <VBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" style="-fx-background-color: #f4f4f4; -fx-border-color: #ddd; -fx-border-radius: 5;">
+                            <children>
+                                <Label text="Total Students" textFill="#666" />
+                                <Label fx:id="lblTotalStudents" text="0">
+                                    <font>
+                                        <Font name="System Bold" size="30.0" />
+                                    </font>
+                                </Label>
+                            </children>
+                        </VBox>
+                        <VBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" style="-fx-background-color: #f4f4f4; -fx-border-color: #ddd; -fx-border-radius: 5;">
+                            <children>
+                                <Label text="Average GPA" textFill="#666" />
+                                <Label fx:id="lblAvgGpa" text="0.00">
+                                    <font>
+                                        <Font name="System Bold" size="30.0" />
+                                    </font>
+                                </Label>
+                            </children>
+                        </VBox>
+                    </children>
+                </HBox>
+
+                <HBox spacing="20.0" VBox.vgrow="ALWAYS">
+                    <children>
+                        <VBox HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="GPA Distribution" />
+                                <PieChart fx:id="gpaDistributionChart" title="Performance Overview" />
+                            </children>
+                        </VBox>
+                        <VBox HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Students by Level" />
+                                <BarChart fx:id="levelBarChart">
+                                    <xAxis>
+                                        <CategoryAxis label="Level" side="BOTTOM" />
+                                    </xAxis>
+                                    <yAxis>
+                                        <NumberAxis label="Count" side="LEFT" />
+                                    </yAxis>
+                                </BarChart>
+                            </children>
+                        </VBox>
+                    </children>
+                </HBox>
+
+                <Button mnemonicParsing="false" onAction="#closeReports" text="Back to Dashboard" />
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>

@@ -9,12 +9,14 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -23,6 +25,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import java.io.*;
@@ -759,6 +763,40 @@ public class StudentsController implements Initializable {
         } catch (IOException e) {
             // If file doesn't exist yet, keep the default value
             this.atRiskThreshold = 1.5;
+        }
+    }
+    @FXML
+    private void openReports() throws java.io.IOException {
+        javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(getClass().getResource("/view/ReportsView.fxml"));
+        javafx.scene.Parent root = loader.load();
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.setScene(new javafx.scene.Scene(root));
+        stage.setTitle("Academic Performance Reports");
+        stage.show();
+    }
+    @FXML
+    private void handleOpenReports(ActionEvent event) {
+        try {
+            // 1. Load the FXML for the reports screen
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/ReportsView.fxml"));
+            Parent root = loader.load();
+
+            // 2. Create a new "Stage" (Window)
+            Stage stage = new Stage();
+            stage.setTitle("Student Performance Analysis");
+            stage.setScene(new Scene(root));
+
+            // 3. Make it a "Modal" window (optional - prevents clicking the main app until closed)
+            stage.initModality(Modality.APPLICATION_MODAL);
+
+            stage.show();
+        } catch (IOException e) {
+            System.err.println("Could not load reports screen: " + e.getMessage());
+            // Show an alert to the user if it fails
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setContentText("Check if ReportsView.fxml exists in /resources/view/");
+            alert.show();
         }
     }
  }
