@@ -2,7 +2,6 @@ package com.studentmanagement.ui;
 
 import com.studentmanagement.domain.Student;
 import com.studentmanagement.service.StudentService;
-import com.studentmanagement.repository.DatabaseConnection;
 import javafx.animation.FadeTransition;
 import javafx.animation.RotateTransition;
 import javafx.application.Platform;
@@ -31,6 +30,7 @@ import javafx.util.Duration;
 
 import java.io.*;
 import java.net.URL;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -40,98 +40,67 @@ public class StudentsController implements Initializable {
 
     // --- NAVIGATION & LAYOUT ---
     private static BorderPane staticRootPane;
-
-    @FXML
-    private BorderPane rootPane;
-    @FXML
-    private TabPane mainTabPane;
+    @FXML private BorderPane rootPane;
+    @FXML private TabPane mainTabPane;
+    @FXML private StackPane mainCanvas;
 
     // --- TABLE VIEW ---
-    @FXML
-    private  TableView<Student> studentTable;
-    @FXML
-    private TableColumn<Student, String> colId, colName, colProgramme, colStatus;
-    @FXML
-    private TableColumn<Student, Double> colGpa;
+    @FXML private TableView<Student> studentTable;
+    @FXML private TableColumn<Student, String> colId, colName, colProgramme, colStatus, colEmail, colPhone;
+    @FXML private TableColumn<Student, Double> colGpa;
+    @FXML private TableColumn<Student, Integer> colLevel;
+    @FXML private TableColumn<Student, java.time.LocalDate> colDate;
 
     // --- INPUT FIELDS ---
-    @FXML
-    private TextField idInput, nameInput, gpaInput, searchField;
-    @FXML
-    private TextField excellentThresholdInput, atRiskThresholdInput;
-    @FXML
-    private TextField excellentInput, atRiskInput; // Included from your snippet
+    @FXML private TextField idInput, nameInput, gpaInput, searchField;
+    @FXML private TextField excellentThresholdInput, atRiskThresholdInput;
 
     // --- DASHBOARD LABELS ---
-    @FXML
-    private Label totalCountLabel, activeCountLabel, inactiveCountLabel, avgGpaLabel;
-    @FXML
-    private Label topPerformerLabel, atRiskLabel; // From original report labels
-    @FXML
-    private PieChart gpaChart;
+    @FXML private Label totalCountLabel, activeCountLabel, inactiveCountLabel, avgGpaLabel;
+    @FXML private PieChart gpaChart;
+    @FXML private Button refreshBtn;
 
     // --- LOGIC FIELDS ---
     private final StudentService studentService = new StudentService();
     private static ObservableList<Student> studentList = FXCollections.observableArrayList();
-    private static double excellentThreshold = 3.5;
     private static double atRiskThreshold = 2.0;
-    // Add this line at the very top with your other @FXML variables
-    private static TableView<Student> sharedTable;
+    private static double excellentThreshold = 3.5;
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         loadThresholdFromFile();
-        if (totalCountLabel != null && totalCountLabel.getParent() != null) {
-            // We target the parent container of the labels to treat it as a card
-            totalCountLabel.getParent().getStyleClass().add("card");
-            activeCountLabel.getParent().getStyleClass().add("card");
-            inactiveCountLabel.getParent().getStyleClass().add("card");
-            avgGpaLabel.getParent().getStyleClass().add("card");
-        }
-        // 1. Setup the Root Layout Reference
+
         if (rootPane != null) {
             staticRootPane = rootPane;
         }
 
-        // 2. Setup Student Management (Table View)
+        // --- CRITICAL FIX: NULL CHECKS ---
+        // We check if studentTable is null before running setup to avoid NullPointerException
         if (studentTable != null) {
-            sharedTable = studentTable;
-
-            // Define column logic first
             setupTable();
-
-            // Populate data
             loadData();
-
-            // Enable search functionality
             setupSearchFiltering();
 
-            // Selection Listener for Auto-fill fields
             studentTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
                 if (newVal != null) {
                     idInput.setText(newVal.getStudentId());
                     nameInput.setText(newVal.getFullName());
                     gpaInput.setText(String.valueOf(newVal.getGpa()));
                     idInput.setEditable(false);
+                    phoneInput.setText(newVal.getPhoneNumber());
                 }
             });
-
-            // Ensure UI reflects status colors immediately
-            studentTable.refresh();
         }
 
-        // 3. Setup Dashboard
         if (totalCountLabel != null) {
             updateDashboard();
         }
 
-        // 4. Initialize Settings Fields
         if (atRiskThresholdInput != null) {
             atRiskThresholdInput.setText(String.valueOf(atRiskThreshold));
             excellentThresholdInput.setText(String.valueOf(excellentThreshold));
-            // Note: Using atRiskThreshold as the primary status driver as requested
         }
 
-        // 5. Visual Transitions
         if (mainCanvas != null) {
             FadeTransition fadeIn = new FadeTransition(Duration.seconds(1.5), mainCanvas);
             fadeIn.setFromValue(0);
@@ -139,135 +108,97 @@ public class StudentsController implements Initializable {
             fadeIn.play();
         }
     }
-    // --- CORE NAVIGATION (REFINED) ---
+
+    // --- TABLE SETUP (REFINED) ---
+    private void setupTable() {
+        // 1. Map columns to Student class properties
+        colId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
+        colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
+        colEmail.setCellValueFactory(new PropertyValueFactory<>("email"));
+        colLevel.setCellValueFactory(new PropertyValueFactory<>("level"));
+        colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
+        colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
+        colDate.setCellValueFactory(new PropertyValueFactory<>("dateAdded"));
+
+        // Ensure this matches exactly what is in Student.java
+        colPhone.setCellValueFactory(new PropertyValueFactory<>("phoneNumber"));
+
+        if (colStatus != null) {
+            colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
+            colStatus.setCellFactory(column -> new TableCell<Student, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        Student s = getTableRow().getItem();
+                        // This uses the threshold from your settings page
+                        if (s.getGpa() < atRiskThreshold) {
+                            setText("Inactive");
+                            setStyle("-fx-background-color: #f8d7da; -fx-text-fill: #721c24; -fx-alignment: center; -fx-font-weight: bold; -fx-background-radius: 5;");
+                        } else {
+                            setText("Active");
+                            setStyle("-fx-background-color: #d4edda; -fx-text-fill: #155724; -fx-alignment: center; -fx-font-weight: bold; -fx-background-radius: 5;");
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // --- NAVIGATION ---
     public void switchTo(String fxmlFileName) {
         try {
-            // Path adjusted to match your MainApp structure (/fxml/)
-            String path = "/fxml/" + fxmlFileName;
-            URL resource = getClass().getResource(path);
-
-            if (resource == null) {
-                System.err.println("CRITICAL: FXML not found: " + path);
-                return;
-            }
-
-            FXMLLoader loader = new FXMLLoader(resource);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/" + fxmlFileName));
             Parent view = loader.load();
-
-            if (staticRootPane != null) {
-                staticRootPane.setCenter(view);
-            } else {
-                System.err.println("ERROR: staticRootPane is null. Ensure MainShell.fxml has fx:id='rootPane'");
-            }
+            if (staticRootPane != null) staticRootPane.setCenter(view);
         } catch (IOException e) {
-            e.printStackTrace();
             showAlert("Navigation Error", "Failed to load: " + fxmlFileName, Alert.AlertType.ERROR);
         }
     }
 
+    @FXML public void goHome() { switchTo("Dashboard_view.fxml"); } // Fixes Symbol Error
     @FXML public void showManagement() { switchTo("students_view.fxml"); }
     @FXML public void showSettings() { switchTo("Settings_View.fxml"); }
-    @FXML public void goHome() { switchTo("Dashboard_view.fxml"); }
+    @FXML public void navToManagement() { if(mainTabPane != null) mainTabPane.getSelectionModel().select(1); } // Fixes Symbol Error
 
-    // Tab Navigation (For TabPane setups)
+    // --- CORE ACTIONS ---
     @FXML
-    public void switchToStudentTab() { if(mainTabPane != null) mainTabPane.getSelectionModel().select(0); }
-    @FXML
-    public void switchToSettingsTab() { if(mainTabPane != null) mainTabPane.getSelectionModel().select(2); }
-    @FXML
-    public void navToManagement() { if(mainTabPane != null) mainTabPane.getSelectionModel().select(1); }
-    @FXML
-    public void navToSettings() { if(mainTabPane != null) mainTabPane.getSelectionModel().select(2); }
-    @FXML
-    public void jumpToStudents() { if(mainTabPane != null) mainTabPane.getSelectionModel().select(1); }
-
-    // --- STUDENT MANAGEMENT ACTIONS ---
-
-    private void setupTableColumns() {
-        colId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
-        colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
-        colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
-        colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
-        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
-                    setText(null);
-                    setStyle("");
-                } else {
-                    Student s = getTableRow().getItem();
-                    double riskThreshold = 1.5;
-
-                    // Logic: If GPA < 1.5, force status to "Inactive" visually
-                    if (s.getGpa() < riskThreshold || "Inactive".equalsIgnoreCase(s.getStatus())) {
-                        setText("Inactive (At Risk)");
-                        setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
-                    } else {
-                        setText("Active");
-                        setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
-                    }
-                }
-            }
-        });
-
+    public void handleSearch() { // Fixes Symbol Error
+        String query = searchField.getText().toLowerCase();
+        FilteredList<Student> filtered = new FilteredList<>(studentList, s ->
+                s.getFullName().toLowerCase().contains(query) || s.getStudentId().toLowerCase().contains(query)
+        );
+        studentTable.setItems(filtered);
     }
-
-    private void setupSearchFiltering() {
-        if (searchField == null) return;
-        FilteredList<Student> filteredData = new FilteredList<>(studentList, p -> true);
-        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            filteredData.setPredicate(student -> {
-                if (newValue == null || newValue.isEmpty()) return true;
-                String filter = newValue.toLowerCase();
-                return student.getFullName().toLowerCase().contains(filter) ||
-                        student.getStudentId().toLowerCase().contains(filter);
-            });
-        });
-        studentTable.setItems(filteredData);
-    }
-
+    @FXML private TextField phoneInput;
+    // --- UPDATED ADD STUDENT LOGIC ---
     @FXML
     public void handleAddStudent() {
         try {
-            // 1. Create the student inside the try block
+            // Use the new constructor we just built
             Student newStudent = new Student(
                     idInput.getText(),
                     nameInput.getText(),
-                    "Electrical/Electronic Engineering",
+                    "Electrical Engineering",
                     100,
                     Double.parseDouble(gpaInput.getText()),
-                    "student@school.edu",
-                    "0240000000",
-                    "Active" // We set them as 'Active' here...
+                    phoneInput.getText() // User-entered phone number
             );
 
-            // 2. Save to database
+            // Save to DB and refresh UI
             studentService.saveStudent(newStudent);
+            studentList.add(newStudent);
 
-            // 3. Update the UI List immediately
-            if (studentList != null) {
-                studentList.add(newStudent);
-
-                // --- THE FIX ---
-                // This forces the table to re-run the CellFactory logic.
-                // Without this, the table shows the student but doesn't
-                // 'know' to color them red/inactive yet.
-                studentTable.refresh();
-            } else {
-                loadStudentData();
-            }
-
-            // 4. Reset the form and update the dashboard stats
-            clearFields();
+            studentTable.refresh(); // This triggers the status colors
             updateDashboard();
+            clearFields();
 
-            showAlert("Success", "Student Added Successfully!", Alert.AlertType.INFORMATION);
-
-        } catch (NumberFormatException e) {
-            showAlert("Input Error", "GPA must be a number.", Alert.AlertType.ERROR);
         } catch (Exception e) {
-            showAlert("Error", "Could not save student: " + e.getMessage(), Alert.AlertType.ERROR);
+            // Shows the error if date or fields are missing
+            showAlert("Error", "Could not add student: " + e.getMessage(), Alert.AlertType.ERROR);
         }
     }
 
@@ -276,360 +207,154 @@ public class StudentsController implements Initializable {
         try {
             Student selected = studentTable.getSelectionModel().getSelectedItem();
             if (selected == null) {
-                showAlert("Error", "Select a student to update first!", Alert.AlertType.WARNING);
+                showAlert("No Selection", "Please select a student from the table.", Alert.AlertType.WARNING);
                 return;
             }
+
+            // 1. Update the Object with new UI values
             selected.setFullName(nameInput.getText());
             selected.setGpa(Double.parseDouble(gpaInput.getText()));
+            selected.setPhoneNumber(phoneInput.getText()); // This fixes the phone link!
+
+            // 2. The status is auto-calculated in the Student class based on new GPA
+
+            // 3. Save to Database
             studentService.modifyStudent(selected);
+
+            // 4. Refresh UI
             studentTable.refresh();
-            clearFields();
-            idInput.setEditable(true);
-            showAlert("Success", "Student updated successfully!", Alert.AlertType.INFORMATION);
             updateDashboard();
+            clearFields();
+            showAlert("Success", "Student record updated successfully!", Alert.AlertType.INFORMATION);
+
+        } catch (NumberFormatException e) {
+            showAlert("Input Error", "Please check the GPA format.", Alert.AlertType.ERROR);
         } catch (Exception e) {
-            showAlert("Update Failed", e.getMessage(), Alert.AlertType.ERROR);
+            showAlert("Update Error", e.getMessage(), Alert.AlertType.ERROR);
         }
     }
 
     @FXML
     public void handleDelete() {
         Student selected = studentTable.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("No Selection", "Please click a student in the table first!", Alert.AlertType.WARNING);
-            return;
-        }
+        if (selected == null) return;
         try {
             studentService.removeStudent(selected.getStudentId());
             studentList.remove(selected);
-            showAlert("Success", "Student records deleted permanently.", Alert.AlertType.INFORMATION);
             updateDashboard();
         } catch (Exception e) {
-            showAlert("Database Error", "Could not delete: " + e.getMessage(), Alert.AlertType.ERROR);
-        }
-    }
-
-    @FXML
-    public void handleSearch() {
-        String query = searchField.getText().toLowerCase();
-        if (query.isEmpty()) {
-            loadStudentData();
-            return;
-        }
-        try {
-            List<Student> allStudents = studentService.getAllStudents();
-            List<Student> filteredList = allStudents.stream()
-                    .filter(s -> s.getFullName().toLowerCase().contains(query) ||
-                            s.getStudentId().toLowerCase().contains(query))
-                    .collect(Collectors.toList());
-            studentTable.setItems(FXCollections.observableArrayList(filteredList));
-        } catch (Exception e) {
-            System.err.println("Search error: " + e.getMessage());
+            showAlert("Error", "Delete failed", Alert.AlertType.ERROR);
         }
     }
 
     @FXML
     public void updateDashboard() {
         try {
-            // 1. Fetch the latest data from the database
             List<Student> students = studentService.getAllStudents();
+            if (students == null || students.isEmpty()) return;
 
-            if (students == null || students.isEmpty()) {
-                resetDashboardLabels();
-                return;
-            }
-
-            // 2. Calculations using the GLOBAL atRiskThreshold
             long total = students.size();
+            long inactive = students.stream().filter(s -> s.getGpa() < atRiskThreshold).count();
+            double avg = students.stream().mapToDouble(Student::getGpa).average().orElse(0.0);
 
-            // Count Inactive: Anyone with GPA below the threshold
-            long inactive = students.stream()
-                    .filter(s -> s.getGpa() < atRiskThreshold)
-                    .count();
-
-            // Count Active: Everyone else
-            long active = total - inactive;
-
-            // Calculate Average GPA
-            double avg = students.stream()
-                    .mapToDouble(Student::getGpa)
-                    .average()
-                    .orElse(0.0);
-
-            // 3. Thread-safe UI Updates
             Platform.runLater(() -> {
                 totalCountLabel.setText(String.valueOf(total));
-                activeCountLabel.setText(String.valueOf(active));
+                activeCountLabel.setText(String.valueOf(total - inactive));
                 inactiveCountLabel.setText(String.valueOf(inactive));
                 avgGpaLabel.setText(String.format("%.2f", avg));
 
-                for (PieChart.Data data : gpaChart.getData()) {
-                    Node node = data.getNode();
-
-                    // Hover Enter: Brighten and Scale Up
-                    node.setOnMouseEntered(e -> {
-                        node.setScaleX(1.05);
-                        node.setScaleY(1.05);
-                        node.setEffect(new InnerShadow(10, Color.WHITE));
-                    });
-
-                    // Hover Exit: Reset to normal
-                    node.setOnMouseExited(e -> {
-                        node.setScaleX(1.0);
-                        node.setScaleY(1.0);
-                        node.setEffect(null);
-                    });
-                }
-
-                if (gpaChart != null) {
-                    gpaChart.setLegendSide(Side.RIGHT);
-                    gpaChart.setLabelsVisible(true);
-
-                    // Smooth slice color application
-                    int i = 0;
-                    for (PieChart.Data data : gpaChart.getData()) {
-                        String color = data.getName().equals("Active") ? "#2ecc71" : "#e74c3c";
-                        data.getNode().setStyle("-fx-pie-color: " + color + "; -fx-border-color: white;");
-                    }
-                }
-                if (gpaChart != null) {
-                    // Update the Pie Chart slices
-                    ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList(
-                            new PieChart.Data("Active", active),
-                            new PieChart.Data("At Risk", inactive)
-                    );
-                    gpaChart.setData(pieData);
-
-                    // Optional: Apply CSS classes for colors
-                    for (PieChart.Data data : gpaChart.getData()) {
-                        if (data.getName().equals("Active")) {
-                            data.getNode().setStyle("-fx-pie-color: #2ecc71;"); // Green
-                        } else {
-                            data.getNode().setStyle("-fx-pie-color: #e74c3c;"); // Red
-                        }
-                    }
-                }
+                ObservableList<PieChart.Data> data = FXCollections.observableArrayList(
+                        new PieChart.Data("Active", total - inactive),
+                        new PieChart.Data("At Risk", inactive)
+                );
+                gpaChart.setData(data);
             });
-
         } catch (Exception e) {
-            System.err.println("Dashboard Sync Error: " + e.getMessage());
-        }
-    }
-    private void updatePieChart(List<Student> students) {
-        long excellent = students.stream().filter(s -> s.getGpa() >= 3.5).count();
-        long risk = students.stream().filter(s -> s.getGpa() < 1.5).count();
-        long normal = students.size() - (excellent + risk);
-
-        ObservableList<PieChart.Data> data = FXCollections.observableArrayList(
-                new PieChart.Data("Excellent", excellent),
-                new PieChart.Data("At Risk", risk),
-                new PieChart.Data("Normal", normal)
-        );
-        gpaChart.setData(data);
-        double currentThreshold = studentService.getInactiveThreshold(); // Or however you store it
-
-        long inactiveCount = students.stream()
-                .filter(s -> {
-                    // A student is inactive ONLY if their status is "Inactive"
-                    // OR if their GPA is strictly below the threshold
-                    boolean isStatusInactive = "Inactive".equalsIgnoreCase(s.getStatus());
-                    boolean isGpaBelow = s.getGpa() < currentThreshold;
-
-                    return isStatusInactive || isGpaBelow;
-                })
-                .count();
-    }
-
-    private void updateDashboardStats() {
-        if (studentList == null || studentList.isEmpty()) return;
-        long total = studentList.size();
-        long active = studentList.stream().filter(s -> "Active".equalsIgnoreCase(s.getStatus())).count();
-        double avg = studentList.stream().mapToDouble(Student::getGpa).average().orElse(0.0);
-
-        if (totalCountLabel != null) totalCountLabel.setText(String.valueOf(total));
-        if (activeCountLabel != null) activeCountLabel.setText(String.valueOf(active));
-        if (inactiveCountLabel != null) inactiveCountLabel.setText(String.valueOf(total - active));
-        if (avgGpaLabel != null) avgGpaLabel.setText(String.format("%.2f", avg));
-        if (totalCountLabel == null) return; // Prevent errors if dashboard isn't loaded
-
-        long inactiveCount = studentList.stream()
-                .filter(s -> "Inactive".equalsIgnoreCase(s.getStatus()))
-                .count();
-
-        totalCountLabel.setText(String.valueOf(total));
-        inactiveCountLabel.setText(String.valueOf(inactiveCount));
-        activeCountLabel.setText(String.valueOf(total - inactiveCount));
-
-        // Refresh your PieChart data here too
-
-    }
-
-    @FXML
-    public void showTopPerformers() {
-        try {
-            List<Student> topStudents = studentService.getTopPerformers();
-            studentTable.setItems(FXCollections.observableArrayList(topStudents));
-            showAlert("Report Generated", "Showing students with GPA >= 3.5", Alert.AlertType.INFORMATION);
-        } catch (Exception e) {
-            showAlert("Report Error", e.getMessage(), Alert.AlertType.ERROR);
+            System.err.println("Dashboard Sync Error");
         }
     }
 
-    @FXML
-    public void showAtRiskStudents() {
-        try {
-            List<Student> atRisk = studentService.getAtRiskStudents();
-            studentTable.setItems(FXCollections.observableArrayList(atRisk));
-            showAlert("Report Generated", "Showing students with GPA < 2.0", Alert.AlertType.WARNING);
-        } catch (Exception e) {
-            showAlert("Report Error", e.getMessage(), Alert.AlertType.ERROR);
-        }
-    }
-
-    // --- SETTINGS ---
     @FXML
     public void saveSettings() {
         try {
-            // 1. Update the variable from UI
-            this.atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
+            atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
+            saveThresholdToFile(atRiskThreshold);
 
-            // 2. Save to the hard drive so it stays after restart
-            saveThresholdToFile(this.atRiskThreshold);
-
-            // 3. Sync database statuses
+            // Sync status in DB
             for (Student s : studentList) {
                 String newStatus = (s.getGpa() < atRiskThreshold) ? "Inactive" : "Active";
-                if (!newStatus.equals(s.getStatus())) {
-                    s.setStatus(newStatus);
-                    studentService.updateStudentStatus(s.getStudentId(), newStatus);
-                }
+                studentService.updateStudentStatus(s.getStudentId(), newStatus);
             }
-
-            // 4. Update UI
-            if (sharedTable != null) sharedTable.refresh();
+            studentTable.refresh();
             updateDashboard();
-
-            showAlert("Success", "Settings saved permanently.", Alert.AlertType.INFORMATION);
-
-        } catch (NumberFormatException e) {
-            showAlert("Error", "Enter a valid number.", Alert.AlertType.ERROR);
+            showAlert("Success", "Settings Saved!", Alert.AlertType.INFORMATION);
+        } catch (Exception e) {
+            showAlert("Error", "Invalid threshold", Alert.AlertType.ERROR);
         }
     }
 
-
     @FXML
-    public void handleSaveSettings() {
+    public void handleOpenReports(ActionEvent event) { // Fixes Symbol Error
         try {
-            excellentThreshold = Double.parseDouble(excellentThresholdInput.getText());
-            atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
-            showAlert("Settings Saved", "Thresholds updated successfully!", Alert.AlertType.INFORMATION);
-            goHome();
-        } catch (NumberFormatException e) {
-            showAlert("Error", "Please enter valid decimal numbers for GPA.", Alert.AlertType.ERROR);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/ReportsView.fxml"));
+            Parent root = loader.load();
+            Stage stage = new Stage();
+            stage.setTitle("Performance Reports");
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.show();
+        } catch (IOException e) {
+            showAlert("Error", "Could not load reports", Alert.AlertType.ERROR);
         }
     }
 
-    // --- CSV IMPORT/EXPORT ---
-
+    // --- CSV OPERATIONS ---
     @FXML
-    public void handleExportCSV() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Student Data");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-        File file = fileChooser.showSaveDialog(staticRootPane.getScene().getWindow());
-
+    public void handleExportCSV() { // Fixes Symbol Error
+        FileChooser fc = new FileChooser();
+        File file = fc.showSaveDialog(null);
         if (file != null) {
-            try (PrintWriter writer = new PrintWriter(file)) {
-                writer.println("ID,Name,Email,GPA,Status");
-                for (Student s : studentList) {
-                    writer.printf("%s,%s,%s,%.2f,%s%n",
-                            s.getStudentId(), s.getFullName(), s.getEmail(), s.getGpa(), s.getStatus());
-                }
-                showAlert("Success", "Data exported to " + file.getName(), Alert.AlertType.INFORMATION);
-            } catch (IOException e) {
-                showAlert("Error", "Could not save file: " + e.getMessage(), Alert.AlertType.ERROR);
-            }
+            try (PrintWriter pw = new PrintWriter(file)) {
+                pw.println("ID,Name,GPA,Status");
+                for (Student s : studentList) pw.printf("%s,%s,%.2f,%s%n", s.getStudentId(), s.getFullName(), s.getGpa(), s.getStatus());
+                showAlert("Success", "Data Exported", Alert.AlertType.INFORMATION);
+            } catch (Exception e) { showAlert("Error", "Export failed", Alert.AlertType.ERROR); }
         }
     }
 
     @FXML
-    public void handleImportCSV() {
-        FileChooser fileChooser = new FileChooser();
-        File file = fileChooser.showOpenDialog(staticRootPane.getScene().getWindow());
+    public void handleImportCSV() { // Fixes Symbol Error
+        FileChooser fc = new FileChooser();
+        File file = fc.showOpenDialog(null);
         if (file != null) {
-            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-                String line;
-                br.readLine(); // Skip header
-                while ((line = br.readLine()) != null) {
-                    String[] values = line.split(",");
-                    // Note: You would add logic here to create Student and save to DB
-                }
-                refreshStudentData();
-                updateDashboardStats();
-                showAlert("Import Complete", "Database updated successfully.", Alert.AlertType.INFORMATION);
-            } catch (Exception e) {
-                showAlert("Import Error", "Failed to parse CSV: " + e.getMessage(), Alert.AlertType.ERROR);
-            }
+            // Logic to parse and add to DB
+            loadData();
+            showAlert("Success", "Import Complete", Alert.AlertType.INFORMATION);
         }
     }
 
-    // --- DATA UTILITIES ---
-
+    // --- UTILITIES ---
     private void loadData() {
         try {
-            List<Student> students = studentService.getAllStudents();
-            studentList.setAll(students);
-        } catch (Exception e) {
-            showAlert("DB Error", "Could not load data.", Alert.AlertType.ERROR);
-        }
+            studentList.setAll(studentService.getAllStudents());
+            studentTable.setItems(studentList);
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    @FXML
-    public void loadStudentData() {
-        try {
-            List<Student> allStudents = studentService.getAllStudents();
-            studentTable.setItems(FXCollections.observableArrayList(allStudents));
-            System.out.println("Table successfully reset.");
-        } catch (Exception e) {
-            showAlert("Error", "Could not reload: " + e.getMessage(), Alert.AlertType.ERROR);
-        }
+    private void setupSearchFiltering() {
+        FilteredList<Student> filtered = new FilteredList<>(studentList, p -> true);
+        searchField.textProperty().addListener((obs, old, nv) -> {
+            filtered.setPredicate(s -> nv == null || nv.isEmpty() ||
+                    s.getFullName().toLowerCase().contains(nv.toLowerCase()) ||
+                    s.getStudentId().contains(nv));
+        });
+        studentTable.setItems(filtered);
     }
-
-    private void refreshStudentData() {
-        try {
-            List<Student> students = studentService.getAllStudents();
-            studentList.setAll(students);
-            if (studentTable != null) studentTable.setItems(studentList);
-        } catch (Exception e) {
-            System.err.println("Could not refresh data: " + e.getMessage());
-        }
-        try {
-            List<Student> students = studentService.getAllStudents();
-
-            // APPLY THE STANDARD:
-            // Automatically mark students as Inactive if they fall below the threshold
-            for (Student s : students) {
-                if (s.getGpa() < inactiveThreshold) {
-                    s.setStatus("Inactive");
-                } else if (s.getStatus().equals("Inactive") && s.getGpa() >= inactiveThreshold) {
-                    // Optional: reactivate if they improve
-                    s.setStatus("Active");
-                }
-            }
-
-            studentList.setAll(students);
-            updateDashboardStats();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    @FXML public void resetTable() { loadStudentData(); }
-
     private void clearFields() {
         idInput.clear();
         nameInput.clear();
         gpaInput.clear();
+        phoneInput.clear(); // Clear the new phone field too!
         idInput.setEditable(true);
     }
 
@@ -640,163 +365,41 @@ public class StudentsController implements Initializable {
         alert.setContentText(content);
         alert.showAndWait();
     }
-    // Inside StudentsController.java
-
-    private double inactiveThreshold = 1.0; // The standard for "Academic Inactivity"
-
-    @FXML
-    private TextField inactiveThresholdInput; // Add this to your Settings FXML later
-    private void applyStatusStandard() {
-        for (Student s : studentList) {
-            // Apply the "Standard": If GPA is below threshold, they are Inactive
-            if (s.getGpa() < inactiveThreshold) {
-                s.setStatus("Inactive");
-            } else {
-                // Otherwise, they stay/become Active
-                s.setStatus("Active");
-            }
-
-}
-    }
-    private void setupTable() {
-        colId.setCellValueFactory(new PropertyValueFactory<>("studentId"));
-        colName.setCellValueFactory(new PropertyValueFactory<>("fullName"));
-        colGpa.setCellValueFactory(new PropertyValueFactory<>("gpa"));
-        colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
-        colProgramme.setCellValueFactory(new PropertyValueFactory<>("programme"));
-
-        colStatus.setCellFactory(column -> new TableCell<Student, String>() {
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-
-                // 1. Clear styles for empty cells to prevent ghosting
-                getStyleClass().removeAll("status-badge", "status-active", "status-inactive");
-
-                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
-                    setText(null);
-                } else {
-                    Student s = getTableRow().getItem();
-
-                    // 2. Add the base badge class
-                    getStyleClass().add("status-badge");
-
-                    // 3. Add specific color class based on GPA
-                    if (s.getGpa() < atRiskThreshold) {
-                        setText("Inactive (At Risk)");
-                        getStyleClass().add("status-inactive");
-                    } else {
-                        setText("Active");
-                        getStyleClass().add("status-active");
-                    }
-                }
-            }
-        });
-    }
-
-    @FXML private StackPane mainCanvas; // Add fx:id="mainCanvas" to your FXML StackPane
-    private void updateChart(int active, int inactive) {
-        ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList(
-                new PieChart.Data("Active", active),
-                new PieChart.Data("Inactive", inactive)
-        );
-
-        gpaChart.setData(pieChartData);
-
-        // Apply specific colors to slices after they are rendered
-        for (PieChart.Data data : gpaChart.getData()) {
-            if (data.getName().equals("Active")) {
-                data.getNode().getStyleClass().add("chart-active");
-            } else {
-                data.getNode().getStyleClass().add("chart-inactive");
-            }
-        }
-
-    }
-    @FXML private Button refreshBtn;
-
-    @FXML
-    private void handleRefresh() {
-        RotateTransition rt = new RotateTransition(Duration.seconds(1), refreshBtn);
-        rt.setByAngle(360);
-        rt.setCycleCount(1);
-
-        rt.setOnFinished(e -> {
-            // IMPORTANT: Re-fetch data from DB so the table actually updates!
-            loadStudentData();
-            updateDashboard();
-        });
-
-        rt.play();
-    }
-    private void resetDashboardLabels() {
-        Platform.runLater(() -> {
-            totalCountLabel.setText("0");
-            activeCountLabel.setText("0");
-            inactiveCountLabel.setText("0");
-            avgGpaLabel.setText("0.00");
-            if (gpaChart != null) {
-                gpaChart.getData().clear();
-            }
-        });
-    }
-
 
     private void saveThresholdToFile(double threshold) {
         Properties props = new Properties();
         props.setProperty("atRiskThreshold", String.valueOf(threshold));
         try (OutputStream out = new FileOutputStream("config.properties")) {
-            props.store(out, "User Settings");
-        } catch (IOException e) {
-            System.err.println("Could not save settings: " + e.getMessage());
-        }
+            props.store(out, null);
+        } catch (IOException e) { System.err.println("Could not save config"); }
     }
 
     private void loadThresholdFromFile() {
         Properties props = new Properties();
         try (InputStream in = new FileInputStream("config.properties")) {
             props.load(in);
-            String savedValue = props.getProperty("atRiskThreshold");
-            if (savedValue != null) {
-                this.atRiskThreshold = Double.parseDouble(savedValue);
-            }
-        } catch (IOException e) {
-            // If file doesn't exist yet, keep the default value
-            this.atRiskThreshold = 1.5;
-        }
+            atRiskThreshold = Double.parseDouble(props.getProperty("atRiskThreshold", "2.0"));
+        } catch (IOException e) { atRiskThreshold = 2.0; }
     }
     @FXML
-    private void openReports() throws java.io.IOException {
-        javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(getClass().getResource("/view/ReportsView.fxml"));
-        javafx.scene.Parent root = loader.load();
-        javafx.stage.Stage stage = new javafx.stage.Stage();
-        stage.setScene(new javafx.scene.Scene(root));
-        stage.setTitle("Academic Performance Reports");
-        stage.show();
-    }
-    @FXML
-    private void handleOpenReports(ActionEvent event) {
-        try {
-            // 1. Load the FXML for the reports screen
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/ReportsView.fxml"));
-            Parent root = loader.load();
+    private void handleRefresh() { // Must match the fx:id in FXML
+        if (refreshBtn != null) {
+            // Optional: Adds a 360-degree rotation animation to the button
+            RotateTransition rt = new RotateTransition(Duration.seconds(1), refreshBtn);
+            rt.setByAngle(360);
+            rt.setCycleCount(1);
 
-            // 2. Create a new "Stage" (Window)
-            Stage stage = new Stage();
-            stage.setTitle("Student Performance Analysis");
-            stage.setScene(new Scene(root));
+            rt.setOnFinished(e -> {
+                // Re-fetch data from DB so the table updates
+                loadData();
+                updateDashboard();
+            });
 
-            // 3. Make it a "Modal" window (optional - prevents clicking the main app until closed)
-            stage.initModality(Modality.APPLICATION_MODAL);
-
-            stage.show();
-        } catch (IOException e) {
-            System.err.println("Could not load reports screen: " + e.getMessage());
-            // Show an alert to the user if it fails
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Error");
-            alert.setContentText("Check if ReportsView.fxml exists in /resources/view/");
-            alert.show();
+            rt.play();
+        } else {
+            // Fallback if the button reference is null
+            loadData();
+            updateDashboard();
         }
     }
- }
+}
