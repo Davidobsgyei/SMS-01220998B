@@ -280,16 +280,15 @@ public class StudentsController implements Initializable {
             atRiskThreshold = Double.parseDouble(atRiskThresholdInput.getText());
             saveThresholdToFile(atRiskThreshold);
 
-            // Sync status in DB
-            for (Student s : studentList) {
-                String newStatus = (s.getGpa() < atRiskThreshold) ? "Inactive" : "Active";
-                studentService.updateStudentStatus(s.getStudentId(), newStatus);
+            // CRITICAL FIX: Only refresh if the table is actually loaded in this view
+            if (studentTable != null) {
+                studentTable.refresh();
             }
-            studentTable.refresh();
-            updateDashboard();
+
             showAlert("Success", "Settings Saved!", Alert.AlertType.INFORMATION);
-        } catch (Exception e) {
-            showAlert("Error", "Invalid threshold", Alert.AlertType.ERROR);
+        } catch (NumberFormatException e) {
+            // Fixes "Invalid threshold" error from image_439037.png
+            showAlert("Error", "Please enter a valid numeric threshold.", Alert.AlertType.ERROR);
         }
     }
 
